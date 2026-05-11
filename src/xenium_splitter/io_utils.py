@@ -44,9 +44,17 @@ def _xenium_temp_root() -> Path:
 
 
 def iter_input_files(input_dir: Path) -> list[Path]:
+    """Recursively list all files in input_dir, excluding metadata files that are
+    handled separately or are summary/artifact files."""
     files: list[Path] = []
+    excluded_names = {
+        "gene_panel.json",
+        "experiment.xenium",
+        "metrics_summary.csv",
+        "analysis_summary.html",
+    }
     for path in input_dir.rglob("*"):
-        if path.is_file():
+        if path.is_file() and path.name not in excluded_names:
             files.append(path)
     return files
 
@@ -584,6 +592,172 @@ def write_zarr_zip_table(df: pd.DataFrame, output_path: Path, dataset_name: str 
                 store.close()
     except Exception as e:
         logger.error(f"Failed to write Zarr ZIP to {output_path.name}: {e}")
+
+
+def filter_zarr_zip_by_row_indices_preserve_schema(
+    zarr_zip_path: Path,
+    output_path: Path,
+    row_indices,
+    base_row_count: int,
+    rebase_region: LassoRegion | None = None,
+    pixel_size_um: float | None = None,
+) -> bool:
+    """Filter a Zarr ZIP while preserving its original hierarchy/schema.
+
+    Any array whose first dimension equals ``base_row_count`` is subset using
+    ``row_indices``. Other arrays/groups/attributes are copied unchanged.
+    """
+    try:
+        import numpy as np
+        import zarr
+    except ImportError:
+        logger.warning("zarr or numpy not installed; cannot preserve zarr schema.")
+        return False
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    indices = np.asarray(row_indices, dtype=np.int64)
+    origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
+    
+    logger.debug(
+        "[filter_zarr_zip_preserve_schema] START: input=%s output=%s rows_before=%d rows_after=%d",
+        zarr_zip_path.name,
+        output_path.name,
+        base_row_count,
+        len(indices),
+    )
+
+    with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="zarr_schema_in_") as tmpdir_in:
+        with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="zarr_schema_out_") as tmpdir_out:
+            try:
+                with zipfile.ZipFile(zarr_zip_path, "r") as zf:
+                    zf.extractall(tmpdir_in)
+
+                src_root = zarr.open_group(tmpdir_in, mode="r")
+
+                # Force zarr v2 format for Xenium Explorer compatibility
+                zarr_format = 2
+                if not (Path(tmpdir_in) / ".zgroup").exists():
+                    # Source is v3, but we still output v2 for compatibility
+                    zarr_format = 2
+
+                logger.debug(
+                    "[filter_zarr_zip_preserve_schema] detected zarr_format=%d, forcing output to v2",
+                    zarr_format,
+                )
+
+                try:
+                    dst_root = zarr.open_group(tmpdir_out, mode="w", zarr_format=2)
+                except TypeError:
+                    # Older zarr versions don't support zarr_format parameter
+                    dst_root = zarr.open_group(tmpdir_out, mode="w")
+                    logger.warning("zarr_format parameter not supported; using default format")
+
+                def _rebase_known_arrays(path_key: str, data_arr, node_attrs: dict):
+                    if origin_xy is None or not hasattr(data_arr, "shape"):
+                        return data_arr
+
+                    x0, y0 = origin_xy
+                    leaf = path_key.split("/")[-1].lower()
+
+                    try:
+                        if leaf == "polygon_vertices" and getattr(data_arr, "ndim", 0) >= 1 and data_arr.shape[0] >= 2:
+                            out = data_arr.copy()
+                            out[0, ...] = out[0, ...] - x0
+                            out[1, ...] = out[1, ...] - y0
+                            return out
+
+                        if leaf == "cell_summary" and getattr(data_arr, "ndim", 0) == 2:
+                            out = data_arr.copy()
+                            cols = node_attrs.get("column_names", [])
+                            cols_l = [str(c).lower() for c in cols]
+                            for i, col in enumerate(cols_l):
+                                if col in {"cell_centroid_x", "nucleus_centroid_x", "x", "x_location", "global_x"}:
+                                    out[:, i] = out[:, i] - x0
+                                elif col in {"cell_centroid_y", "nucleus_centroid_y", "y", "y_location", "global_y"}:
+                                    out[:, i] = out[:, i] - y0
+                            return out
+
+                        if getattr(data_arr, "ndim", 0) == 1:
+                            if leaf in {"x", "x_location", "global_x", "cell_centroid_x", "nucleus_centroid_x"} or leaf.endswith("_x"):
+                                out = data_arr.copy()
+                                out[...] = out[...] - x0
+                                return out
+                            if leaf in {"y", "y_location", "global_y", "cell_centroid_y", "nucleus_centroid_y"} or leaf.endswith("_y"):
+                                out = data_arr.copy()
+                                out[...] = out[...] - y0
+                                return out
+                    except Exception:
+                        return data_arr
+
+                    return data_arr
+
+                def _copy_group(src_group, dst_group, path_prefix: str = "") -> None:
+                    for attr_key, attr_val in dict(src_group.attrs).items():
+                        dst_group.attrs[attr_key] = attr_val
+
+                    # Fix number_cells to reflect the filtered count, not the original.
+                    if "number_cells" in dict(dst_group.attrs):
+                        dst_group.attrs["number_cells"] = len(indices)
+
+                    for key in src_group.keys():
+                        node = src_group[key]
+                        key_path = f"{path_prefix}/{key}" if path_prefix else str(key)
+                        if hasattr(node, "shape") and hasattr(node, "dtype"):
+                            data = node[:]
+                            if getattr(node, "ndim", 0) >= 1:
+                                match_axes = [ax for ax, sz in enumerate(node.shape) if int(sz) == int(base_row_count)]
+                                if match_axes:
+                                    data = np.take(data, indices, axis=match_axes[0])
+
+                            data = _rebase_known_arrays(key_path, data, dict(node.attrs))
+
+                            chunks = getattr(node, "chunks", None)
+                            if chunks is not None and isinstance(data.shape, tuple) and len(chunks) == len(data.shape):
+                                chunks = tuple(min(int(c), int(s)) for c, s in zip(chunks, data.shape))
+
+                            create_kwargs = {
+                                "shape": data.shape,
+                                "dtype": data.dtype,
+                                "data": data,
+                            }
+                            if chunks is not None:
+                                create_kwargs["chunks"] = chunks
+
+                            compressors = getattr(node, "compressors", None)
+                            compressor = getattr(node, "compressor", None)
+                            if compressors is not None:
+                                create_kwargs["compressors"] = compressors
+                            elif compressor is not None:
+                                create_kwargs["compressor"] = compressor
+
+                            try:
+                                dst_arr = dst_group.create_dataset(key, **create_kwargs)
+                            except TypeError:
+                                create_kwargs.pop("compressors", None)
+                                create_kwargs.pop("compressor", None)
+                                dst_arr = dst_group.create_dataset(key, **create_kwargs)
+
+                            for attr_key, attr_val in dict(node.attrs).items():
+                                dst_arr.attrs[attr_key] = attr_val
+                        else:
+                            dst_sub = dst_group.require_group(key)
+                            _copy_group(node, dst_sub, key_path)
+
+                _copy_group(src_root, dst_root)
+                _rezip_zarr(Path(tmpdir_out), output_path)
+                logger.debug(
+                    "[filter_zarr_zip_preserve_schema] SUCCESS: output=%s size=%dB",
+                    output_path.name,
+                    output_path.stat().st_size if output_path.exists() else 0,
+                )
+                return True
+            except Exception as e:
+                logger.error(
+                    "Failed schema-preserving zarr filter for %s: %s",
+                    zarr_zip_path.name,
+                    e,
+                )
+                return False
 
 
 def find_boundary_files(input_dir: Path) -> dict[str, Path]:
@@ -1286,9 +1460,41 @@ def find_matching_tabular_for_zarr(zarr_zip_path: Path) -> Path | None:
     return None
 
 
+def _read_cfm_cell_features_array_specs(source_zarr_zip_path: Path | None) -> dict[str, dict]:
+    """Read per-array zarr metadata from source cell_feature_matrix.zarr.zip.
+
+    Returns a mapping for ``cell_features`` arrays keyed by array name, with
+    optional keys: ``compressor``, ``compressors``, ``chunks``.
+    """
+    if source_zarr_zip_path is None or not source_zarr_zip_path.exists():
+        return {}
+
+    specs: dict[str, dict] = {}
+    try:
+        with zipfile.ZipFile(source_zarr_zip_path, "r") as zf:
+            for key in ["cell_id", "data", "indices", "indptr"]:
+                meta_name = f"cell_features/{key}/.zarray"
+                if meta_name not in zf.namelist():
+                    continue
+                meta = json.loads(zf.read(meta_name))
+                specs[key] = {
+                    "compressor": meta.get("compressor"),
+                    "compressors": meta.get("compressors"),
+                    "chunks": tuple(meta.get("chunks", [])) if meta.get("chunks") is not None else None,
+                    "shape": tuple(meta.get("shape", [])) if meta.get("shape") is not None else None,
+                    "dimension_separator": meta.get("dimension_separator", None),
+                }
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Could not read source CFM zarr specs from %s: %s", source_zarr_zip_path, exc)
+        return {}
+
+    return specs
+
+
 def build_cell_feature_matrix_zarr_from_h5(
     filtered_h5_path: Path,
     output_zarr_zip_path: Path,
+    source_zarr_zip_path: Path | None = None,
 ) -> tuple[int, int] | None:
     """Rebuild cell_feature_matrix.zarr.zip from a filtered cell_feature_matrix.h5.
 
@@ -1297,25 +1503,28 @@ def build_cell_feature_matrix_zarr_from_h5(
     """
     try:
         import h5py
+        import numpy as np
         import zarr
     except ImportError:
         logger.warning("h5py/zarr not installed; cannot rebuild cell_feature_matrix.zarr.zip")
         return None
 
     t0 = time.perf_counter()
-    logger.info(
-        "Rebuilding %s from %s",
-        output_zarr_zip_path.name,
+    logger.debug(
+        "[build_cfm_zarr] START: input_h5=%s output_zarr=%s",
         filtered_h5_path.name,
+        output_zarr_zip_path.name,
     )
     try:
         t_read = time.perf_counter()
         with h5py.File(filtered_h5_path, "r") as h5f:
             if "matrix" not in h5f:
+                logger.error("[build_cfm_zarr] FAILED: no matrix group in H5")
                 return None
             matrix = h5f["matrix"]
             required = {"barcodes", "data", "indices", "indptr", "shape", "features"}
             if not required.issubset(set(matrix.keys())):
+                logger.error("[build_cfm_zarr] FAILED: missing required keys in matrix group")
                 return None
 
             barcodes = matrix["barcodes"][:]
@@ -1323,7 +1532,13 @@ def build_cell_feature_matrix_zarr_from_h5(
             indices = matrix["indices"][:]
             indptr = matrix["indptr"][:]
             shape = matrix["shape"][:]
-            feature_ids = matrix["features"]["id"][:]
+            feat_grp = matrix["features"]
+            feature_ids = feat_grp["id"][:]
+            # feature_keys = gene symbol ("name" in 10X H5); feature_types = assay type
+            def _decode_arr(arr):
+                return [x.decode("utf-8", errors="replace") if isinstance(x, (bytes, bytearray)) else str(x) for x in arr]
+            feature_keys = _decode_arr(feat_grp["name"][:]) if "name" in feat_grp else _decode_arr(feature_ids)
+            feature_types = _decode_arr(feat_grp["feature_type"][:]) if "feature_type" in feat_grp else ["gene"] * len(feature_ids)
 
             # Read H5 chunk shapes so zarr can use aligned chunking, avoiding
             # misaligned reads that force re-chunking at write time.
@@ -1338,6 +1553,21 @@ def build_cell_feature_matrix_zarr_from_h5(
             chunks_indices = _h5_chunk(matrix["indices"],  indices)
             chunks_indptr  = _h5_chunk(matrix["indptr"],   indptr)
 
+            # Normalize to Xenium-style fixed-width byte strings for stable .zarray metadata.
+            barcodes_text = _decode_arr(barcodes)
+            max_bc_len = max((len(x.encode("utf-8")) for x in barcodes_text), default=1)
+            barcodes_fixed = np.asarray(barcodes_text, dtype=f"S{max_bc_len}")
+            chunks_cell_id = (max(len(barcodes_fixed), 1),)
+
+            # Canonicalize numeric arrays to uint32 and single full-length chunks.
+            # This yields stable .zarray metadata like: dtype "<u4", chunks=[N], fill_value=0.
+            data = np.asarray(data, dtype=np.uint32)
+            indices = np.asarray(indices, dtype=np.uint32)
+            indptr = np.asarray(indptr, dtype=np.uint32)
+            chunks_data = (max(len(data), 1),)
+            chunks_indices = (max(len(indices), 1),)
+            chunks_indptr = (max(len(indptr), 1),)
+
         logger.info(
             "  H5 read: %.2fs  (%d features, %d cells, data chunks=%s)",
             time.perf_counter() - t_read,
@@ -1346,40 +1576,255 @@ def build_cell_feature_matrix_zarr_from_h5(
             chunks_data,
         )
 
-        # Disable zarr's internal compression — the data is ZIP-compressed
-        # at the store layer already, so double-compression just wastes time.
-        zarr_major = int(str(getattr(zarr, "__version__", "2")).split(".")[0])
-        _no_compress: dict = {"compressors": []} if zarr_major >= 3 else {"compressor": None}
-
         output_zarr_zip_path.parent.mkdir(parents=True, exist_ok=True)
         t_zarr = time.perf_counter()
-        with warnings.catch_warnings():
-            _suppress_zipstore_duplicate_name_warning()
-            store = _open_zarr_zip_store(output_zarr_zip_path, mode="w")
+        source_specs = _read_cfm_cell_features_array_specs(source_zarr_zip_path)
+
+        def _create_ds(grp, name, arr, chunks):
+            """Create a zarr dataset, stripping unknown compression kwargs gracefully."""
+            kwargs: dict = {"shape": arr.shape, "dtype": arr.dtype, "data": arr, "chunks": chunks}
+            spec = source_specs.get(name, {})
+            src_compressors = spec.get("compressors")
+            src_compressor = spec.get("compressor")
+
             try:
-                root = zarr.open_group(store=store, mode="w")
+                if src_compressors is not None:
+                    return grp.create_dataset(name, compressors=src_compressors, **kwargs)
+                if src_compressor is not None:
+                    return grp.create_dataset(name, compressor=src_compressor, **kwargs)
+                return grp.create_dataset(name, compressor=None, **kwargs)
+            except TypeError:
+                pass
+            try:
+                if src_compressors is not None:
+                    return grp.create_dataset(name, compressors=src_compressors, **kwargs)
+                if src_compressor is not None:
+                    return grp.create_dataset(name, compressor=src_compressor, **kwargs)
+                return grp.create_dataset(name, compressor=None, **kwargs)
+            except TypeError:
+                pass
+            return grp.create_dataset(name, **kwargs)
+
+        # Write to a temp DIRECTORY store then rezip — the same technique used by
+        # filter_zarr_zip_by_row_indices_preserve_schema which is known to work.
+        with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="cfm_zarr_build_") as tmpdir_out:
+            try:
+                try:
+                    root = zarr.open_group(tmpdir_out, mode="w", zarr_format=2)
+                except TypeError:
+                    root = zarr.open_group(tmpdir_out, mode="w")
+
                 g = root.require_group("cell_features")
-                g.create_dataset("cell_id", shape=barcodes.shape, dtype=barcodes.dtype, data=barcodes, chunks=chunks_cell_id, **_no_compress)
-                g.create_dataset("data",    shape=data.shape,     dtype=data.dtype,     data=data,    chunks=chunks_data,    **_no_compress)
-                g.create_dataset("indices", shape=indices.shape,  dtype=indices.dtype,  data=indices, chunks=chunks_indices, **_no_compress)
-                g.create_dataset("indptr",  shape=indptr.shape,   dtype=indptr.dtype,   data=indptr,  chunks=chunks_indptr,  **_no_compress)
-                g.attrs["feature_ids"] = [
-                    x.decode("utf-8") if isinstance(x, (bytes, bytearray)) else str(x)
+                _create_ds(g, "cell_id", barcodes_fixed, chunks_cell_id)
+                _create_ds(g, "data",    data,     chunks_data)
+                _create_ds(g, "indices", indices,  chunks_indices)
+                _create_ds(g, "indptr",  indptr,   chunks_indptr)
+                decoded_feature_ids = [
+                    x.decode("utf-8", errors="replace") if isinstance(x, (bytes, bytearray)) else str(x)
                     for x in feature_ids
                 ]
-                g.attrs["shape"] = [int(shape[0]), int(shape[1])]
-            finally:
-                store.close()
-        logger.info("  Zarr ZipStore write: %.2fs", time.perf_counter() - t_zarr)
+                g.attrs["feature_ids"] = decoded_feature_ids
+                g.attrs["feature_keys"] = feature_keys
+                g.attrs["feature_types"] = feature_types
+                g.attrs["major_version"] = 3
+                g.attrs["minor_version"] = 0
+                g.attrs["number_cells"] = int(shape[1])
+                g.attrs["number_features"] = int(shape[0])
+
+                _rezip_zarr(Path(tmpdir_out), output_zarr_zip_path)
+            except Exception as inner_exc:  # noqa: BLE001
+                raise RuntimeError(f"zarr write to tmpdir failed: {inner_exc}") from inner_exc
+        logger.info("  Zarr write+rezip: %.2fs", time.perf_counter() - t_zarr)
 
         logger.info(
-            "Rebuilt %s in %.2fs total",
+            "[build_cfm_zarr] SUCCESS: %s in %.2fs total",
             output_zarr_zip_path.name,
             time.perf_counter() - t0,
         )
         return int(shape[0]), int(shape[1])
     except Exception as exc:  # noqa: BLE001
-        logger.error("Failed rebuilding %s from %s: %s", output_zarr_zip_path.name, filtered_h5_path.name, exc)
+        logger.error("[build_cfm_zarr] FAILED: %s from %s: %s", output_zarr_zip_path.name, filtered_h5_path.name, exc, exc_info=True)
+        return None
+
+
+def build_cell_feature_matrix_zarr_from_sparse_bundle(
+    filtered_cfm_dir: Path,
+    output_zarr_zip_path: Path,
+    source_cfm_dir: Path | None = None,
+    source_zarr_zip_path: Path | None = None,
+) -> tuple[int, int] | None:
+    """Build ``cell_feature_matrix.zarr.zip`` from a filtered sparse bundle.
+
+    Expects ``filtered_cfm_dir`` to contain at least:
+    - barcodes file
+    - matrix.mtx(.gz)
+    - optional features file (for ``feature_ids`` attribute)
+
+    Returns:
+        (num_features, num_cells) on success, else None.
+    """
+    try:
+        import numpy as np
+        import zarr
+    except ImportError:
+        logger.warning("numpy/zarr not installed; cannot rebuild cell_feature_matrix.zarr.zip")
+        return None
+
+    files = get_cell_feature_matrix_files(filtered_cfm_dir)
+    if not files["barcodes"] or not files["matrix"]:
+        logger.error(
+            "[build_cfm_zarr_sparse] FAILED: missing required files in %s",
+            filtered_cfm_dir,
+        )
+        return None
+
+    t0 = time.perf_counter()
+    logger.debug(
+        "[build_cfm_zarr_sparse] START: input_dir=%s output_zarr=%s",
+        filtered_cfm_dir,
+        output_zarr_zip_path,
+    )
+
+    try:
+        barcodes = read_barcodes_file(files["barcodes"])
+        data_rows, (num_features, num_cells, _num_values) = read_mtx_file(files["matrix"])
+
+        if len(barcodes) != num_cells:
+            logger.warning(
+                "[build_cfm_zarr_sparse] barcodes/matrix mismatch: %d barcodes vs %d matrix cols; using matrix cols",
+                len(barcodes),
+                num_cells,
+            )
+
+        # Build source-compatible cell_id uint32[N,2]. First column is global cell index (1-based).
+        # Use source_cfm_dir/barcodes as the global ordering reference when available.
+        global_ids = np.arange(1, num_cells + 1, dtype=np.uint32)
+        if source_cfm_dir is not None:
+            src_files = get_cell_feature_matrix_files(source_cfm_dir)
+            src_bc = src_files.get("barcodes")
+            if src_bc is not None and src_bc.exists():
+                source_barcodes = read_barcodes_file(src_bc)
+                bc_to_global = {bc: i + 1 for i, bc in enumerate(source_barcodes)}
+                mapped = [bc_to_global.get(bc, i + 1) for i, bc in enumerate(barcodes[:num_cells])]
+                global_ids = np.asarray(mapped, dtype=np.uint32)
+
+        cell_id = np.zeros((num_cells, 2), dtype=np.uint32)
+        cell_id[:, 0] = global_ids
+        cell_id[:, 1] = 1
+
+        source_specs = _read_cfm_cell_features_array_specs(source_zarr_zip_path)
+        source_indptr_shape = source_specs.get("indptr", {}).get("shape")
+        if source_indptr_shape and len(source_indptr_shape) >= 1 and source_indptr_shape[0] >= 1:
+            source_num_features = int(source_indptr_shape[0]) - 1
+            if source_num_features > num_features:
+                num_features = source_num_features
+
+        # Build source-compatible CSR-like arrays by feature rows:
+        # - indices are cell-column indices (0-based, subset-local)
+        # - indptr length is num_features + 1
+        row_data: list[list[int]] = [[] for _ in range(num_features)]
+        row_indices: list[list[int]] = [[] for _ in range(num_features)]
+        for row_1based, col_1based, value in data_rows:
+            r = row_1based - 1
+            c = col_1based - 1
+            if 0 <= r < num_features and 0 <= c < num_cells:
+                row_indices[r].append(c)
+                row_data[r].append(value)
+
+        indptr = np.zeros(num_features + 1, dtype=np.uint32)
+        nnz = 0
+        for r in range(num_features):
+            nnz += len(row_data[r])
+            indptr[r + 1] = nnz
+
+        if nnz:
+            data = np.empty(nnz, dtype=np.uint32)
+            indices = np.empty(nnz, dtype=np.uint32)
+            offset = 0
+            for r in range(num_features):
+                n = len(row_data[r])
+                if n:
+                    data[offset : offset + n] = row_data[r]
+                    indices[offset : offset + n] = row_indices[r]
+                    offset += n
+        else:
+            data = np.array([], dtype=np.uint32)
+            indices = np.array([], dtype=np.uint32)
+
+        feature_ids: list[str] = []
+        feature_keys: list[str] = []
+        feature_types: list[str] = []
+        if files["features"] and files["features"].exists():
+            open_fn = gzip.open if str(files["features"]).endswith(".gz") else open
+            with open_fn(files["features"], "rt", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    parts = line.rstrip("\n").split("\t")
+                    if not parts or not parts[0]:
+                        continue
+                    feature_ids.append(parts[0])
+                    feature_keys.append(parts[1] if len(parts) > 1 else parts[0])
+                    feature_types.append(parts[2] if len(parts) > 2 else "gene")
+
+        def _chunk_1d(n: int) -> tuple[int, ...]:
+            return (max(n, 1),)
+
+        def _create_ds_sparse(grp, name, arr, chunks):
+            kwargs: dict = {"shape": arr.shape, "dtype": arr.dtype, "data": arr, "chunks": chunks}
+            spec = source_specs.get(name, {})
+            src_compressors = spec.get("compressors")
+            src_compressor = spec.get("compressor")
+
+            try:
+                if src_compressors is not None:
+                    return grp.create_dataset(name, compressors=src_compressors, **kwargs)
+                if src_compressor is not None:
+                    return grp.create_dataset(name, compressor=src_compressor, **kwargs)
+                return grp.create_dataset(name, compressor=None, **kwargs)
+            except TypeError:
+                pass
+            try:
+                if src_compressors is not None:
+                    return grp.create_dataset(name, compressors=src_compressors, **kwargs)
+                if src_compressor is not None:
+                    return grp.create_dataset(name, compressor=src_compressor, **kwargs)
+                return grp.create_dataset(name, compressor=None, **kwargs)
+            except TypeError:
+                pass
+            return grp.create_dataset(name, **kwargs)
+
+        output_zarr_zip_path.parent.mkdir(parents=True, exist_ok=True)
+        # Write to temp DIRECTORY store then rezip (same approach as filter_zarr_zip_by_row_indices_preserve_schema)
+        with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="cfm_zarr_sparse_") as tmpdir_out:
+            try:
+                root = zarr.open_group(tmpdir_out, mode="w", zarr_format=2)
+            except TypeError:
+                root = zarr.open_group(tmpdir_out, mode="w")
+
+            g = root.require_group("cell_features")
+            _create_ds_sparse(g, "cell_id", cell_id, (max(num_cells, 1), 2))
+            _create_ds_sparse(g, "data",    data,    _chunk_1d(len(data)))
+            _create_ds_sparse(g, "indices", indices, _chunk_1d(len(indices)))
+            _create_ds_sparse(g, "indptr",  indptr,  _chunk_1d(len(indptr)))
+            g.attrs["feature_ids"] = feature_ids
+            g.attrs["feature_keys"] = feature_keys
+            g.attrs["feature_types"] = feature_types
+            g.attrs["major_version"] = 3
+            g.attrs["minor_version"] = 0
+            g.attrs["number_cells"] = int(num_cells)
+            g.attrs["number_features"] = int(num_features)
+
+            _rezip_zarr(Path(tmpdir_out), output_zarr_zip_path)
+
+        logger.info(
+            "[build_cfm_zarr_sparse] SUCCESS: %s (%d features, %d cells) in %.2fs",
+            output_zarr_zip_path.name,
+            int(num_features),
+            int(num_cells),
+            time.perf_counter() - t0,
+        )
+        return int(num_features), int(num_cells)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[build_cfm_zarr_sparse] FAILED: %s", exc, exc_info=True)
         return None
 
 

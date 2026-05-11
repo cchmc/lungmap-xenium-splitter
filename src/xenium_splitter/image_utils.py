@@ -346,17 +346,67 @@ def _apply_local_mask(image: np.ndarray, local_polygon: Polygon) -> np.ndarray:
     return np.where(mask[..., None], image, 0)
 
 
+def _pyramid_levels(image: np.ndarray) -> list[np.ndarray]:
+    """Build a list of progressively halved images for a pyramid OME-TIFF.
+
+    Stops when either spatial dimension drops to 512 px or below.
+    Each level is a 2×2 block-average of the previous (preserves dtype).
+    """
+    levels: list[np.ndarray] = [image]
+    while True:
+        prev = levels[-1]
+        h, w = prev.shape[:2]
+        if h <= 512 or w <= 512:
+            break
+        nh, nw = h // 2, w // 2
+        trimmed = prev[: nh * 2, : nw * 2]
+        if trimmed.ndim == 3:
+            down = trimmed.reshape(nh, 2, nw, 2, trimmed.shape[2]).mean(axis=(1, 3))
+        else:
+            down = trimmed.reshape(nh, 2, nw, 2).mean(axis=(1, 3))
+        levels.append(down.astype(prev.dtype))
+    return levels
+
+
+def _write_pyramidal_ome_tiff(
+    image: np.ndarray,
+    output_path: Path,
+    axes: str | None = None,
+) -> None:
+    """Write a tiled, pyramidal OME-TIFF compatible with Xenium Explorer.
+
+    Sub-resolution levels are stored as sub-IFDs (the TIFF pyramid standard).
+    Tile size is 256×256 as required by Xenium Explorer 4+.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    levels = _pyramid_levels(image)
+    n_subifds = len(levels) - 1
+    metadata = {"axes": axes} if axes else {}
+    photometric = "rgb" if (image.ndim == 3 and image.shape[2] in (3, 4)) else "minisblack"
+    options: dict = {"tile": (256, 256), "photometric": photometric}
+    with tifffile.TiffWriter(output_path, bigtiff=True) as tif:
+        tif.write(levels[0], subifds=n_subifds, metadata=metadata, **options)
+        for level in levels[1:]:
+            tif.write(level, subfiletype=1, **options)
+
+
 def save_image_like(source_path: Path, output_path: Path, image: np.ndarray) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     source_name = source_path.name.lower()
     if source_name.endswith((".tif", ".tiff", ".ome.tif", ".ome.tiff")):
-        tifffile.imwrite(output_path, image)
+        if image.ndim == 2:
+            axes = "YX"
+        elif image.ndim == 3:
+            axes = "YXC"
+        else:
+            axes = None
+        _write_pyramidal_ome_tiff(image, output_path, axes=axes)
         return output_path
 
     if source_path.suffix.lower() == ".svs":
         fallback = output_path.with_suffix(".tiff")
-        tifffile.imwrite(fallback, image)
+        _write_pyramidal_ome_tiff(image, fallback, axes="YXC")
         return fallback
 
     pil_image = Image.fromarray(_coerce_for_pillow(image))
@@ -367,7 +417,7 @@ def save_image_like(source_path: Path, output_path: Path, image: np.ndarray) -> 
 def convert_svs_to_ome_tiff(svs_path: Path, output_path: Path) -> Path:
     image = _read_svs(svs_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    tifffile.imwrite(output_path, image, metadata={"axes": "YXC"}, ome=True)
+    _write_pyramidal_ome_tiff(image, output_path, axes="YXC")
     return output_path
 
 
@@ -379,7 +429,7 @@ def write_array_as_ome_tiff(image: np.ndarray, output_path: Path) -> Path:
         axes = "YXC"
     else:
         raise ValueError(f"Unsupported array shape for OME-TIFF: {image.shape}")
-    tifffile.imwrite(output_path, image, metadata={"axes": axes}, ome=True)
+    _write_pyramidal_ome_tiff(image, output_path, axes=axes)
     return output_path
 
 

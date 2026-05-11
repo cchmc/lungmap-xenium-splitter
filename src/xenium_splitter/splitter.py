@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,9 +17,8 @@ from xenium_splitter.image_utils import (
     write_array_as_ome_tiff,
 )
 from xenium_splitter.io_utils import (
-    build_analysis_zarr_from_analysis_dir,
+    build_cell_feature_matrix_zarr_from_sparse_bundle,
     build_cell_feature_matrix_zarr_from_h5,
-    build_tabular_zarr_from_filtered_output,
     classify_file,
     copy_gene_panel,
     detect_xy_columns,
@@ -26,6 +26,7 @@ from xenium_splitter.io_utils import (
     find_matching_tabular_for_zarr,
     filter_cell_feature_matrix,
     filter_cell_feature_matrix_h5,
+    filter_zarr_zip_by_row_indices_preserve_schema,
     filter_table_by_entity_ids,
     find_boundary_files,
     get_cell_feature_matrix_files,
@@ -37,13 +38,13 @@ from xenium_splitter.io_utils import (
     rebase_table_coordinates_to_region_crop,
     read_table,
     read_hdf5_table,
+    read_barcodes_file,
     read_zarr_zip_table,
     subset_table_for_region,
     subset_table_for_regions_optimized,
     update_experiment_xenium_for_region,
     write_table,
     write_hdf5_table,
-    write_zarr_zip_table,
 )
 from xenium_splitter.lasso import load_lasso_regions
 from xenium_splitter.metadata import build_run_metadata_markdown
@@ -51,6 +52,23 @@ from xenium_splitter.models import FileMetric, RunMetrics, SplitConfig
 from xenium_splitter.recalculate_diffexp import recalculate_diffexp_for_region
 
 logger = logging.getLogger(__name__)
+
+
+def _always_skip_rule_for_path(relative_path: Path) -> str | None:
+    parts_lower = {part.lower() for part in relative_path.parts}
+    if "aux_outputs" in parts_lower:
+        return "aux_outputs/**"
+    return None
+
+
+def _record_always_skipped(metrics: RunMetrics, rule: str, relative_path: Path) -> None:
+    by_rule = metrics.extra.setdefault("always_skipped_by_rule", {})
+    if not isinstance(by_rule, dict):
+        by_rule = {}
+        metrics.extra["always_skipped_by_rule"] = by_rule
+    entries = by_rule.setdefault(rule, [])
+    if isinstance(entries, list):
+        entries.append(str(relative_path))
 
 
 def _format_elapsed(seconds: float) -> str:
@@ -388,9 +406,19 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
 
     metrics.files_total = len(input_files) + len(cfm_processed_files)
 
+    filtered_input_files: list[Path] = []
+    for file_path in input_files:
+        relative_path = file_path.relative_to(config.input_dir)
+        skip_rule = _always_skip_rule_for_path(relative_path)
+        if skip_rule is not None:
+            metrics.files_skipped += 1
+            _record_always_skipped(metrics, skip_rule, relative_path)
+            continue
+        filtered_input_files.append(file_path)
+
     # Group known multi-format stems (cells, transcripts, cell_boundaries,
     # nucleus_boundaries) so they are read once and written to all formats.
-    multi_format_groups, remainder_files = _group_multi_format_files(input_files)
+    multi_format_groups, remainder_files = _group_multi_format_files(filtered_input_files)
 
     main_loop_start = time.perf_counter()
 
@@ -707,7 +735,21 @@ def _split_file_group(
                 subset = per_region_subsets[region.region_id]
                 dest = config.output_dir / f"region_{region.region_id}" / rel
                 if file_name_lower.endswith(".zarr.zip"):
-                    write_zarr_zip_table(subset, dest, dataset_name="data")
+                    ok = filter_zarr_zip_by_row_indices_preserve_schema(
+                        fp,
+                        dest,
+                        subset.index.to_numpy(dtype=int),
+                        base_row_count=len(table),
+                        rebase_region=region if xy_cols is not None else None,
+                        pixel_size_um=config.pixel_size_um,
+                    )
+                    if not ok:
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(fp, dest)
+                        logger.warning(
+                            "Schema-preserving filter failed for %s; copied source archive verbatim for compatibility.",
+                            fp.name,
+                        )
                 else:
                     write_table(subset, dest)
                 logger.debug(
@@ -821,6 +863,65 @@ def _process_file(
                 item.duration_s = elapsed
 
 
+def _is_analysis_model_metadata(relative_path: Path) -> bool:
+    """Detect if file is analysis model metadata (components, variance, etc.)
+    that should be copied as-is to all regions (not filtered by cells)."""
+    metadata_files = {
+        "components.csv",
+        "variance.csv",
+        "dispersion.csv",
+        "features_selected.csv",
+        "stdev.csv",
+    }
+    parts_lower = [part.lower() for part in relative_path.parts]
+    if "analysis" not in parts_lower:
+        return False
+    return relative_path.name.lower() in metadata_files
+
+
+def _copy_analysis_model_metadata(
+    file_path: Path,
+    relative_path: Path,
+    regions,
+    config: SplitConfig,
+    metrics: RunMetrics,
+) -> None:
+    """Copy analysis model metadata files to each region output directory.
+    
+    Model metadata files (PCA components, variance, UMAP components, etc.) describe
+    the full dataset and are immutable. They are copied as-is to each region's
+    corresponding analysis subdirectory.
+    """
+    try:
+        for region in regions:
+            region_output = config.output_dir / f"region_{region.region_id}"
+            dest_path = region_output / relative_path
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            # Preserve source bytes and formatting exactly (no parsing/re-write).
+            shutil.copy2(file_path, dest_path)
+        
+        metrics.files_processed += 1
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(relative_path),
+                file_type="tabular",
+                status="processed",
+                detail="Copied verbatim to all regions (analysis model metadata)",
+            )
+        )
+    except Exception as e:
+        logger.error(f"Failed to copy analysis model metadata {relative_path}: {e}")
+        metrics.files_failed += 1
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(relative_path),
+                file_type="tabular",
+                status="failed",
+                detail=f"Failed to copy model metadata: {e}",
+            )
+        )
+
+
 def _split_tabular(
     file_path: Path,
     relative_path: Path,
@@ -829,6 +930,12 @@ def _split_tabular(
     metrics: RunMetrics,
     region_entity_ids: dict[str, dict[str, set[str]]] | None = None,
 ) -> None:
+    # Check if this is analysis model metadata (PCA/UMAP components, variance, etc.)
+    # These are immutable model artifacts describing the full dataset.
+    if _is_analysis_model_metadata(relative_path):
+        _copy_analysis_model_metadata(file_path, relative_path, regions, config, metrics)
+        return
+
     table = read_table(file_path)
     entity_type = _infer_entity_type_for_table(file_path, relative_path, table)
     
@@ -1453,6 +1560,22 @@ def _split_zarr(
         region_entity_ids: Pre-extracted boundary-based entity IDs
     """
     lower_name = file_path.name.lower()
+
+    def _write_schema_preserving_subset(source_table: pd.DataFrame, subset: pd.DataFrame, destination: Path) -> None:
+        ok = filter_zarr_zip_by_row_indices_preserve_schema(
+            file_path,
+            destination,
+            subset.index.to_numpy(dtype=int),
+            base_row_count=len(source_table),
+        )
+        if not ok:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file_path, destination)
+            logger.warning(
+                "Schema-preserving filter failed for %s; copied source archive verbatim for compatibility.",
+                file_path.name,
+            )
+
     if lower_name == "cell_feature_matrix.zarr.zip" and not config.write_cell_feature_matrix_zarr:
         metrics.files_skipped += 1
         metrics.file_metrics.append(
@@ -1468,69 +1591,27 @@ def _split_zarr(
     table = read_zarr_zip_table(file_path)
     
     if table is None or table.empty:
-        if lower_name == "cell_feature_matrix.zarr.zip" and region_entity_ids:
-            rows_by_region: dict[str, int] = {}
-            rows_written_total = 0
-            processed_any = False
+        # Some Xenium zarr archives (notably analysis.zarr.zip and
+        # cell_feature_matrix.zarr.zip) are not simple row tables. Rebuilding
+        # them from CSV/H5 changes schema/version and breaks Explorer.
+        # Preserve exact source schema by copying the archive verbatim.
+        if lower_name in {"analysis.zarr.zip", "cell_feature_matrix.zarr.zip"}:
             for region in regions:
                 region_dir = config.output_dir / f"region_{region.region_id}"
-                filtered_h5 = region_dir / relative_path.parent / "cell_feature_matrix.h5"
                 destination = region_dir / relative_path
-                logger.info(
-                    "Rebuilding cell_feature_matrix.zarr.zip for region %s from filtered H5: %s",
-                    region.region_id,
-                    filtered_h5,
-                )
-                result = build_cell_feature_matrix_zarr_from_h5(filtered_h5, destination)
-                if result is None:
-                    rows_by_region[region.region_id] = 0
-                    continue
-                processed_any = True
-                _n_features, n_cells = result
-                rows_by_region[region.region_id] = n_cells
-                rows_written_total += n_cells
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(file_path, destination)
 
-            if processed_any:
-                metrics.files_processed += 1
-                metrics.file_metrics.append(
-                    FileMetric(
-                        source_path=str(relative_path),
-                        file_type="zarr",
-                        status="processed",
-                        detail="Rebuilt from filtered cell_feature_matrix.h5",
-                        rows_written_total=rows_written_total,
-                        rows_written_by_region=rows_by_region,
-                    )
+            metrics.files_processed += 1
+            metrics.file_metrics.append(
+                FileMetric(
+                    source_path=str(relative_path),
+                    file_type="zarr",
+                    status="processed",
+                    detail="Copied verbatim to preserve original Xenium zarr schema",
                 )
-                return
-
-        if lower_name == "analysis.zarr.zip":
-            rows_by_region: dict[str, int] = {}
-            rows_written_total = 0
-            processed_any = False
-            for region in regions:
-                region_dir = config.output_dir / f"region_{region.region_id}"
-                analysis_dir = region_dir / "analysis"
-                destination = region_dir / relative_path
-                written = build_analysis_zarr_from_analysis_dir(analysis_dir, destination)
-                rows_by_region[region.region_id] = written
-                rows_written_total += written
-                if written > 0:
-                    processed_any = True
-
-            if processed_any:
-                metrics.files_processed += 1
-                metrics.file_metrics.append(
-                    FileMetric(
-                        source_path=str(relative_path),
-                        file_type="zarr",
-                        status="processed",
-                        detail="Rebuilt from filtered analysis CSV files",
-                        rows_written_total=rows_written_total,
-                        rows_written_by_region=rows_by_region,
-                    )
-                )
-                return
+            )
+            return
 
         tabular_fallback = find_matching_tabular_for_zarr(file_path)
         if tabular_fallback is not None:
@@ -1544,7 +1625,11 @@ def _split_zarr(
                 metrics,
                 region_entity_ids,
                 "zarr",
-                lambda subset, destination: write_zarr_zip_table(subset, destination, dataset_name="data"),
+                lambda subset, destination, fallback_table=fallback_table: _write_schema_preserving_subset(
+                    fallback_table,
+                    subset,
+                    destination,
+                ),
             ):
                 return
 
@@ -1564,7 +1649,7 @@ def _split_zarr(
                     rows_by_region[region.region_id] = len(subset)
                     rows_written_total += len(subset)
                     destination = config.output_dir / f"region_{region.region_id}" / relative_path
-                    write_zarr_zip_table(subset, destination, dataset_name="data")
+                    _write_schema_preserving_subset(fallback_table, subset, destination)
 
                 metrics.files_processed += 1
                 metrics.file_metrics.append(
@@ -1601,39 +1686,66 @@ def _split_zarr(
         metrics,
         region_entity_ids,
         "zarr",
-        lambda subset, destination: write_zarr_zip_table(subset, destination, dataset_name="data"),
+        lambda subset, destination, table=table: _write_schema_preserving_subset(
+            table,
+            subset,
+            destination,
+        ),
     ):
         return
 
     # Fall back to coordinate-based filtering
     xy_cols = detect_xy_columns(table)
     if xy_cols is None:
-        # For known tabular zarr mirrors (cells, transcripts), rebuild from the
-        # already-filtered output parquet/csv rather than skipping entirely.
-        zarr_stem = file_path.name.lower().split(".zarr.zip")[0]
-        if zarr_stem in ("cells", "transcripts"):
-            rows_by_region: dict[str, int] = {}
-            rows_written_total = 0
-            processed_any = False
-            for region in regions:
-                region_dir = config.output_dir / f"region_{region.region_id}"
-                destination = region_dir / relative_path
-                n_rows = build_tabular_zarr_from_filtered_output(zarr_stem, region_dir, destination)
-                if n_rows is not None:
-                    rows_by_region[region.region_id] = n_rows
-                    rows_written_total += n_rows
-                    processed_any = True
-                else:
-                    rows_by_region[region.region_id] = 0
+        tabular_fallback = find_matching_tabular_for_zarr(file_path)
+        if tabular_fallback is not None:
+            fallback_table = read_table(tabular_fallback)
+            if _try_split_table_by_entity_ids(
+                file_path,
+                relative_path,
+                fallback_table,
+                regions,
+                config,
+                metrics,
+                region_entity_ids,
+                "zarr",
+                lambda subset, destination, fallback_table=fallback_table: _write_schema_preserving_subset(
+                    fallback_table,
+                    subset,
+                    destination,
+                ),
+            ):
+                return
 
-            if processed_any:
+            fallback_xy_cols = detect_xy_columns(fallback_table)
+            if fallback_xy_cols is not None:
+                x_col, y_col = fallback_xy_cols
+                rows_by_region: dict[str, int] = {}
+                rows_written_total = 0
+                for region in regions:
+                    subset = subset_table_for_region(
+                        fallback_table,
+                        region,
+                        x_col,
+                        y_col,
+                        pixel_size_um=config.pixel_size_um,
+                    )
+                    rows_by_region[region.region_id] = len(subset)
+                    rows_written_total += len(subset)
+                    destination = config.output_dir / f"region_{region.region_id}" / relative_path
+                    _write_schema_preserving_subset(fallback_table, subset, destination)
+
                 metrics.files_processed += 1
                 metrics.file_metrics.append(
                     FileMetric(
                         source_path=str(relative_path),
                         file_type="zarr",
                         status="processed",
-                        detail=f"Rebuilt from filtered {zarr_stem}.parquet",
+                        detail=(
+                            f"Schema-preserving rebuild from {tabular_fallback.name} "
+                            f"with coordinates: {x_col}, {y_col}"
+                        ),
+                        rows_input=len(fallback_table),
                         rows_written_total=rows_written_total,
                         rows_written_by_region=rows_by_region,
                     )
@@ -1663,7 +1775,7 @@ def _split_zarr(
         rows_written_total += len(subset)
 
         destination = config.output_dir / f"region_{region.region_id}" / relative_path
-        write_zarr_zip_table(subset, destination, dataset_name="data")
+        _write_schema_preserving_subset(table, subset, destination)
 
     metrics.files_processed += 1
     metrics.file_metrics.append(
@@ -1714,6 +1826,206 @@ def _region_cell_ids(region_entity_ids: dict[str, dict[str, set[str]]] | None, r
         return set()
     per_region = region_entity_ids.get(region_id, {})
     return per_region.get("cells") or per_region.get("cell") or set()
+
+
+def _try_filter_cfm_zarr_by_cell_ids(
+    cfm_zarr_zip: Path,
+    output_zarr_zip: Path,
+    cell_ids: set[str],
+) -> int | None:
+    """Filter cell_feature_matrix.zarr.zip by cell_ids, preserving zarr v2 schema.
+    
+    The CFM zarr contains one row per cell, indexed sequentially. We need to:
+    1. Try to match cell_ids from the cell_features group
+    2. If that fails, try index-based matching (assume order matches cells.zarr.zip)
+    
+    Args:
+        cfm_zarr_zip: Source cell_feature_matrix.zarr.zip path
+        output_zarr_zip: Destination zarr.zip path
+        cell_ids: Set of cell IDs to keep
+        
+    Returns:
+        Number of cells in filtered output, or None if filtering failed.
+    """
+    try:
+        import tempfile
+        import zipfile
+        import zarr
+        import numpy as np
+    except ImportError:
+        logger.warning("zarr/numpy not available; cannot filter CFM zarr")
+        return None
+
+    if not cell_ids or not cfm_zarr_zip.exists():
+        logger.debug(
+            "[CFM zarr] Cannot filter: cell_ids=%d, cfm_exists=%s",
+            len(cell_ids) if cell_ids else 0,
+            cfm_zarr_zip.exists(),
+        )
+        return None
+
+    def _normalize_cell_id_value(value) -> str:
+        if isinstance(value, (bytes, bytearray, np.bytes_)):
+            return value.decode("utf-8", errors="replace").strip()
+        if isinstance(value, np.ndarray):
+            # Xenium CFM cell_id can be uint32[N,2]; first column matches cells.csv cell_id.
+            if value.ndim == 1 and value.size >= 1:
+                return str(int(value[0]))
+            return str(value.tolist()).strip()
+        if isinstance(value, (tuple, list)) and value:
+            return str(value[0]).strip()
+        return str(value).strip()
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="cfm_zarr_in_") as tmpdir_in:
+            with tempfile.TemporaryDirectory(prefix="cfm_zarr_out_") as tmpdir_out:
+                with zipfile.ZipFile(cfm_zarr_zip, "r") as zf:
+                    zf.extractall(tmpdir_in)
+
+                src_root = zarr.open_group(tmpdir_in, mode="r")
+                if "cell_features" not in src_root:
+                    logger.warning(
+                        "[CFM zarr] cell_features group not found in %s; available=%s",
+                        cfm_zarr_zip.name,
+                        list(src_root.keys()),
+                    )
+                    return None
+
+                src_cf = src_root["cell_features"]
+                if not all(k in src_cf for k in ["cell_id", "data", "indices", "indptr"]):
+                    logger.warning(
+                        "[CFM zarr] missing required arrays in cell_features; found=%s",
+                        list(src_cf.keys()),
+                    )
+                    return None
+
+                src_cell_id = src_cf["cell_id"][:]
+                src_data = src_cf["data"][:]
+                src_indices = src_cf["indices"][:]
+                src_indptr = src_cf["indptr"][:]
+
+                requested = {_normalize_cell_id_value(v) for v in cell_ids}
+                keep_indices = [
+                    i for i, v in enumerate(src_cell_id)
+                    if _normalize_cell_id_value(v) in requested
+                ]
+
+                # Xenium boundaries provide barcode-like IDs (e.g. aaaaacik-1), while
+                # CFM zarr cell_id may store numeric [index, 1]. Translate via sibling
+                # cell_feature_matrix/barcodes file when direct matching yields no hits.
+                if not keep_indices:
+                    cfm_dir = cfm_zarr_zip.parent / "cell_feature_matrix"
+                    try:
+                        barcodes_files = get_cell_feature_matrix_files(cfm_dir)
+                        barcodes_path = barcodes_files.get("barcodes")
+                        if barcodes_path is not None and barcodes_path.exists():
+                            all_barcodes = read_barcodes_file(barcodes_path)
+                            req_barcodes = {str(v).strip() for v in cell_ids}
+                            keep_indices = [i for i, bc in enumerate(all_barcodes) if bc in req_barcodes]
+                            logger.debug(
+                                "[CFM zarr] Fallback barcode->index mapping matched %d columns",
+                                len(keep_indices),
+                            )
+                    except Exception as map_exc:  # noqa: BLE001
+                        logger.debug("[CFM zarr] barcode mapping fallback failed: %s", map_exc)
+
+                if not keep_indices:
+                    logger.warning("[CFM zarr] No matching cell IDs found in source cell_id array")
+                    return None
+
+                keep_indices_arr = np.asarray(sorted(set(keep_indices)), dtype=np.int64)
+                logger.debug(
+                    "[CFM zarr] Matched %d requested IDs -> %d columns",
+                    len(requested),
+                    len(keep_indices_arr),
+                )
+
+                # Filter CSR matrix columns (indices), preserving feature rows (indptr length).
+                old_to_new = np.full(src_cell_id.shape[0], -1, dtype=np.int64)
+                old_to_new[keep_indices_arr] = np.arange(len(keep_indices_arr), dtype=np.int64)
+
+                new_data_parts: list[np.ndarray] = []
+                new_indices_parts: list[np.ndarray] = []
+                new_indptr = np.zeros_like(src_indptr)
+                running = 0
+                for r in range(len(src_indptr) - 1):
+                    start = int(src_indptr[r])
+                    end = int(src_indptr[r + 1])
+                    cols = src_indices[start:end]
+                    vals = src_data[start:end]
+                    mapped = old_to_new[cols.astype(np.int64, copy=False)]
+                    mask = mapped >= 0
+                    kept_n = int(mask.sum())
+                    if kept_n:
+                        new_data_parts.append(vals[mask])
+                        new_indices_parts.append(mapped[mask].astype(src_indices.dtype, copy=False))
+                        running += kept_n
+                    new_indptr[r + 1] = running
+
+                if new_data_parts:
+                    new_data = np.concatenate(new_data_parts).astype(src_data.dtype, copy=False)
+                    new_indices = np.concatenate(new_indices_parts).astype(src_indices.dtype, copy=False)
+                else:
+                    new_data = np.array([], dtype=src_data.dtype)
+                    new_indices = np.array([], dtype=src_indices.dtype)
+
+                new_cell_id = src_cell_id[keep_indices_arr]
+
+                def _create_like(dst_group, key: str, data_arr, src_arr) -> None:
+                    kwargs = {
+                        "shape": data_arr.shape,
+                        "dtype": data_arr.dtype,
+                        "data": data_arr,
+                    }
+                    chunks = getattr(src_arr, "chunks", None)
+                    if chunks is not None and len(chunks) == len(data_arr.shape):
+                        kwargs["chunks"] = tuple(min(int(c), int(s)) for c, s in zip(chunks, data_arr.shape))
+                    compressors = getattr(src_arr, "compressors", None)
+                    compressor = getattr(src_arr, "compressor", None)
+                    if compressors is not None:
+                        kwargs["compressors"] = compressors
+                    elif compressor is not None:
+                        kwargs["compressor"] = compressor
+
+                    try:
+                        arr = dst_group.create_dataset(key, **kwargs)
+                    except TypeError:
+                        kwargs.pop("compressors", None)
+                        kwargs.pop("compressor", None)
+                        arr = dst_group.create_dataset(key, **kwargs)
+
+                    for attr_key, attr_val in dict(src_arr.attrs).items():
+                        arr.attrs[attr_key] = attr_val
+
+                try:
+                    dst_root = zarr.open_group(tmpdir_out, mode="w", zarr_format=2)
+                except TypeError:
+                    dst_root = zarr.open_group(tmpdir_out, mode="w")
+
+                for attr_key, attr_val in dict(src_root.attrs).items():
+                    dst_root.attrs[attr_key] = attr_val
+
+                dst_cf = dst_root.require_group("cell_features")
+                for attr_key, attr_val in dict(src_cf.attrs).items():
+                    dst_cf.attrs[attr_key] = attr_val
+                dst_cf.attrs["number_cells"] = int(len(keep_indices_arr))
+
+                _create_like(dst_cf, "cell_id", new_cell_id, src_cf["cell_id"])
+                _create_like(dst_cf, "data", new_data, src_cf["data"])
+                _create_like(dst_cf, "indices", new_indices, src_cf["indices"])
+                _create_like(dst_cf, "indptr", new_indptr.astype(src_indptr.dtype, copy=False), src_cf["indptr"])
+
+                with zipfile.ZipFile(output_zarr_zip, "w", zipfile.ZIP_STORED) as zf:
+                    for fpath in Path(tmpdir_out).rglob("*"):
+                        if fpath.is_file():
+                            zf.write(fpath, arcname=fpath.relative_to(tmpdir_out))
+
+                logger.debug("[CFM zarr] SUCCESS: wrote %s with %d cells", output_zarr_zip.name, len(keep_indices_arr))
+                return int(len(keep_indices_arr))
+
+    except Exception as e:  # noqa: BLE001
+        logger.error("[CFM zarr] FAILED: %s", e, exc_info=True)
+        return None
 
 
 def _split_cell_feature_matrix_bundle(
@@ -1769,8 +2081,17 @@ def _split_cell_feature_matrix_bundle(
                 h5_rows_by_region[region.region_id] = 0
             if cfm_zarr_zip is not None:
                 zarr_rows_by_region[region.region_id] = 0
+            logger.debug(
+                "[_split_cfm_bundle] region=%s: no cell_ids from boundaries, skipping",
+                region.region_id,
+            )
             continue
 
+        logger.debug(
+            "[_split_cfm_bundle] region=%s: %d cell_ids from boundaries",
+            region.region_id,
+            len(cell_ids),
+        )
         region_dir = config.output_dir / f"region_{region.region_id}"
 
         # 1) Filter the folder-based sparse matrix bundle
@@ -1798,29 +2119,109 @@ def _split_cell_feature_matrix_bundle(
                 any_h5_processed = True
                 filtered_h5_path = h5_destination
 
-        # 3) Build sibling cell_feature_matrix.zarr.zip from filtered h5 (if present)
+        # 3) Filter sibling cell_feature_matrix.zarr.zip directly (preserve schema)
+        # Fall back to rebuild from H5 only if direct filter fails
         if (
             cfm_zarr_zip is not None
             and relative_zarr is not None
             and config.write_cell_feature_matrix_zarr
         ):
             zarr_destination = region_dir / relative_zarr
-            if filtered_h5_path is None:
+            if not cell_ids:
                 zarr_rows_by_region[region.region_id] = 0
-            else:
-                logger.info(
-                    "Rebuilding cell_feature_matrix.zarr.zip for region %s from filtered H5: %s",
+                logger.debug(
+                    "[_split_cfm_bundle] region=%s: no cell_ids for zarr, skipping",
                     region.region_id,
-                    filtered_h5_path,
                 )
-                rebuilt = build_cell_feature_matrix_zarr_from_h5(filtered_h5_path, zarr_destination)
-                if rebuilt is None:
-                    zarr_rows_by_region[region.region_id] = 0
-                else:
-                    _n_features, n_cells = rebuilt
-                    zarr_rows_by_region[region.region_id] = n_cells
-                    zarr_rows_total += n_cells
+            else:
+                logger.debug(
+                    "[_split_cfm_bundle] region=%s: attempting to filter zarr (%s exists=%s)",
+                    region.region_id,
+                    cfm_zarr_zip.name,
+                    cfm_zarr_zip.exists(),
+                )
+                # Try to filter the zarr file directly using schema-preserving approach
+                # to maintain zarr v2 format for Xenium Explorer compatibility
+                zarr_rows = _try_filter_cfm_zarr_by_cell_ids(
+                    cfm_zarr_zip,
+                    zarr_destination,
+                    cell_ids,
+                )
+                
+                if zarr_rows is None:
+                    logger.debug(
+                        "[_split_cfm_bundle] region=%s: direct zarr filter returned None",
+                        region.region_id,
+                    )
+                    # Fallback 1: rebuild from already-filtered sparse bundle.
+                    rebuilt_from_sparse = None
+                    if dir_destination.exists():
+                        logger.info(
+                            "Direct zarr filter failed; rebuilding cell_feature_matrix.zarr.zip for region %s from filtered sparse bundle",
+                            region.region_id,
+                        )
+                        rebuilt_from_sparse = build_cell_feature_matrix_zarr_from_sparse_bundle(
+                            dir_destination,
+                            zarr_destination,
+                            source_cfm_dir=cfm_dir,
+                            source_zarr_zip_path=cfm_zarr_zip,
+                        )
+
+                    if rebuilt_from_sparse is not None:
+                        _n_features_sparse, n_cells_sparse = rebuilt_from_sparse
+                        zarr_rows = n_cells_sparse
+                        logger.debug(
+                            "[_split_cfm_bundle] region=%s: rebuilt zarr from sparse bundle: %d cells",
+                            region.region_id,
+                            n_cells_sparse,
+                        )
+                    elif filtered_h5_path is not None:
+                        # Fallback 2: rebuild from filtered H5 if sparse-bundle rebuild failed
+                        logger.info(
+                            "Direct zarr/sparse rebuild failed; rebuilding cell_feature_matrix.zarr.zip for region %s from filtered H5",
+                            region.region_id,
+                        )
+                        rebuilt = build_cell_feature_matrix_zarr_from_h5(
+                            filtered_h5_path,
+                            zarr_destination,
+                            source_zarr_zip_path=cfm_zarr_zip,
+                        )
+                        if rebuilt is None:
+                            logger.warning(
+                                "[_split_cfm_bundle] region=%s: rebuild from H5 also failed",
+                                region.region_id,
+                            )
+                            zarr_rows = 0
+                        else:
+                            _n_features, n_cells = rebuilt
+                            zarr_rows = n_cells
+                            logger.debug(
+                                "[_split_cfm_bundle] region=%s: rebuilt zarr from H5: %d cells",
+                                region.region_id,
+                                n_cells,
+                            )
+                    else:
+                        logger.debug(
+                            "[_split_cfm_bundle] region=%s: no filtered_h5_path available for fallback",
+                            region.region_id,
+                        )
+                        zarr_rows = 0
+                
+                if zarr_rows is not None and zarr_rows > 0:
+                    zarr_rows_by_region[region.region_id] = zarr_rows
+                    zarr_rows_total += zarr_rows
                     any_zarr_processed = True
+                    logger.debug(
+                        "[_split_cfm_bundle] region=%s: zarr processing successful: %d cells",
+                        region.region_id,
+                        zarr_rows,
+                    )
+                else:
+                    zarr_rows_by_region[region.region_id] = 0
+                    logger.debug(
+                        "[_split_cfm_bundle] region=%s: zarr processing failed",
+                        region.region_id,
+                    )
 
     if any_dir_processed:
         metrics.files_processed += 1
@@ -1893,7 +2294,7 @@ def _split_cell_feature_matrix_bundle(
                     source_path=str(relative_zarr),
                     file_type="zarr",
                     status="processed",
-                    detail="Rebuilt from bundled filtered cell_feature_matrix.h5",
+                    detail="Filtered with schema preservation for Xenium Explorer v2 compatibility",
                     rows_written_total=zarr_rows_total,
                     rows_written_by_region=zarr_rows_by_region,
                 )
@@ -1905,7 +2306,7 @@ def _split_cell_feature_matrix_bundle(
                     source_path=str(relative_zarr),
                     file_type="zarr",
                     status="skipped",
-                    detail="No filtered cell_feature_matrix.h5 available for rebuild",
+                    detail="No cell IDs available or filtering failed",
                     rows_written_total=0,
                     rows_written_by_region=zarr_rows_by_region,
                 )

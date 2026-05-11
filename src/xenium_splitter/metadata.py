@@ -108,6 +108,30 @@ def _append_timing_breakdown(lines: list[str], metrics: RunMetrics) -> None:
             lines.append(f"| {source} | {file_type} | {status} | {duration_s:.2f} |")
 
 
+def _append_always_skipped_section(lines: list[str], metrics: RunMetrics) -> None:
+    by_rule = metrics.extra.get("always_skipped_by_rule")
+    if not isinstance(by_rule, dict) or not by_rule:
+        return
+
+    lines.append("")
+    lines.append("## Always-Skipped Files")
+    lines.append("")
+    lines.append("| Rule | Count | Examples |")
+    lines.append("|---|---:|---|")
+
+    for rule in sorted(by_rule.keys()):
+        raw_items = by_rule.get(rule, [])
+        if not isinstance(raw_items, list):
+            continue
+        items = sorted({str(item) for item in raw_items})
+        if not items:
+            continue
+        examples = ", ".join(items[:3])
+        if len(items) > 3:
+            examples += ", ..."
+        lines.append(f"| {rule} | {len(items)} | {examples} |")
+
+
 def _append_per_region_sections(lines: list[str], metrics: RunMetrics) -> None:
     region_ids: set[str] = set()
     counts_by_region = metrics.extra.get("entity_counts_by_region")
@@ -197,6 +221,7 @@ def build_run_metadata_markdown(
     lines.append(f"- Files skipped: {metrics.files_skipped}")
     lines.append(f"- Files failed: {metrics.files_failed}")
     _append_boundary_entity_counts(lines, metrics)
+    _append_always_skipped_section(lines, metrics)
 
     lines.append("")
     lines.append("## Per-file Results")
