@@ -740,7 +740,7 @@ def _split_file_group(
                         dest,
                         subset.index.to_numpy(dtype=int),
                         base_row_count=len(table),
-                        rebase_region=region if xy_cols is not None else None,
+                        rebase_region=region if (xy_cols is not None or file_name_lower == "cells.zarr.zip") else None,
                         pixel_size_um=config.pixel_size_um,
                     )
                     if not ok:

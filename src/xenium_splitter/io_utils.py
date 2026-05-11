@@ -330,38 +330,17 @@ def subset_table_for_regions_optimized(
 
 
 def _region_crop_origin_um(region: LassoRegion, pixel_size_um: float | None = None) -> tuple[float, float]:
-    """Compute crop origin in the same coordinate frame used by image crop bbox.
+    """Compute crop origin in micrometers aligned to image crop pixel boundaries.
 
-    CRITICAL: This function ensures coordinate rebasing matches image crop behavior.
-    
-    When pixel_size_um is provided (from experiment.xenium), the origin computation uses:
-    1. Convert polygon bounds from coordinate space to pixel space (divide by pixel_size_um)
-    2. Floor the result to get integer pixel coordinates (matches image crop _bbox_int)
-    3. Clamp to >= 0 to handle negative bounds
-    4. Convert back to coordinate space (multiply by pixel_size_um)
-    
-    When no pixel_size is provided, returns raw polygon min bounds (legacy fallback).
-    
-    This ensures:
-    - Entities at the crop top-left corner have coordinates close to (0, 0)
-    - Entity coordinates align with cropped image pixel layout
-    - Consistency between image masking and table rebasing
-    
-    Args:
-        region: LASSO region with polygon bounds
-        pixel_size_um: Pixel size in micrometers (optional)
-    
-    Returns:
-        (origin_x, origin_y) tuple in coordinate units
+    With pixel_size_um, this matches image crop logic by flooring polygon minima
+    in pixel space, then converting back to micrometers. Without pixel_size_um,
+    falls back to raw polygon minima.
     """
     min_x, min_y, _, _ = region.bounds
     if pixel_size_um is not None and pixel_size_um > 0:
-        # Convert to pixel space, floor to get integer pixel coordinates
         min_x_px = max(int(math.floor(min_x / pixel_size_um)), 0)
         min_y_px = max(int(math.floor(min_y / pixel_size_um)), 0)
-        # Convert back to coordinate space
         return min_x_px * pixel_size_um, min_y_px * pixel_size_um
-    # Fallback: use raw polygon bounds
     return min_x, min_y
 
 
@@ -372,11 +351,11 @@ def rebase_table_coordinates_to_region_crop(
     y_col: str,
     pixel_size_um: float | None = None,
 ) -> pd.DataFrame:
-    """Shift x/y columns so output coordinates align to the cropped image origin.
-    
-    This transformation ensures that entity data (cells, transcripts, nucleus)
-    written to region output has coordinates that match the cropped/masked image.
-    The result is that an entity at image pixel (0, 0) will have table coordinates ≈ (0, 0).
+    """Shift x/y columns so output coordinates align to cropped image origin.
+
+    If pixel_size_um is provided, output coordinates are converted to pixel units:
+    coord_px = (coord_um - origin_um) / pixel_size_um.
+    Otherwise output remains in original coordinate units after subtraction.
     
     Used by:
     - Coordinate-filtered tabular/HDF5/Zarr outputs (fallback when no boundary data)
@@ -397,10 +376,15 @@ def rebase_table_coordinates_to_region_crop(
 
     # Compute crop origin using image-aligned logic
     origin_x, origin_y = _region_crop_origin_um(region, pixel_size_um=pixel_size_um)
-    
-    # Subtract origin from all coordinates
-    df[x_col] = pd.to_numeric(df[x_col], errors="coerce") - origin_x
-    df[y_col] = pd.to_numeric(df[y_col], errors="coerce") - origin_y
+
+    x = pd.to_numeric(df[x_col], errors="coerce") - origin_x
+    y = pd.to_numeric(df[y_col], errors="coerce") - origin_y
+    if pixel_size_um is not None and pixel_size_um > 0:
+        x = x / pixel_size_um
+        y = y / pixel_size_um
+
+    df[x_col] = x
+    df[y_col] = y
     return df
 
 
@@ -617,6 +601,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     indices = np.asarray(row_indices, dtype=np.int64)
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
+    scale_to_pixels = pixel_size_um is not None and pixel_size_um > 0
     
     logger.debug(
         "[filter_zarr_zip_preserve_schema] START: input=%s output=%s rows_before=%d rows_after=%d",
@@ -659,11 +644,22 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     x0, y0 = origin_xy
                     leaf = path_key.split("/")[-1].lower()
 
+                    def _x_shift(values):
+                        shifted = values - x0
+                        return shifted / pixel_size_um if scale_to_pixels else shifted
+
+                    def _y_shift(values):
+                        shifted = values - y0
+                        return shifted / pixel_size_um if scale_to_pixels else shifted
+
                     try:
-                        if leaf == "polygon_vertices" and getattr(data_arr, "ndim", 0) >= 1 and data_arr.shape[0] >= 2:
+                        if leaf == "polygon_vertices" and getattr(data_arr, "ndim", 0) == 3 and data_arr.shape[0] == 2:
                             out = data_arr.copy()
-                            out[0, ...] = out[0, ...] - x0
-                            out[1, ...] = out[1, ...] - y0
+                            # Shape is (2, N, 26): dim0=[cell_poly, nucleus_poly],
+                            # dim2 stores interleaved x,y pairs: [x0, y0, x1, y1, ...]
+                            # Apply origin shift and optional um->px scaling.
+                            out[:, :, 0::2] = _x_shift(out[:, :, 0::2])
+                            out[:, :, 1::2] = _y_shift(out[:, :, 1::2])
                             return out
 
                         if leaf == "cell_summary" and getattr(data_arr, "ndim", 0) == 2:
@@ -672,19 +668,19 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             cols_l = [str(c).lower() for c in cols]
                             for i, col in enumerate(cols_l):
                                 if col in {"cell_centroid_x", "nucleus_centroid_x", "x", "x_location", "global_x"}:
-                                    out[:, i] = out[:, i] - x0
+                                    out[:, i] = _x_shift(out[:, i])
                                 elif col in {"cell_centroid_y", "nucleus_centroid_y", "y", "y_location", "global_y"}:
-                                    out[:, i] = out[:, i] - y0
+                                    out[:, i] = _y_shift(out[:, i])
                             return out
 
                         if getattr(data_arr, "ndim", 0) == 1:
                             if leaf in {"x", "x_location", "global_x", "cell_centroid_x", "nucleus_centroid_x"} or leaf.endswith("_x"):
                                 out = data_arr.copy()
-                                out[...] = out[...] - x0
+                                out[...] = _x_shift(out[...])
                                 return out
                             if leaf in {"y", "y_location", "global_y", "cell_centroid_y", "nucleus_centroid_y"} or leaf.endswith("_y"):
                                 out = data_arr.copy()
-                                out[...] = out[...] - y0
+                                out[...] = _y_shift(out[...])
                                 return out
                     except Exception:
                         return data_arr
