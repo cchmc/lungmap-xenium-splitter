@@ -351,40 +351,28 @@ def rebase_table_coordinates_to_region_crop(
     y_col: str,
     pixel_size_um: float | None = None,
 ) -> pd.DataFrame:
-    """Shift x/y columns so output coordinates align to cropped image origin.
+    """Shift x/y columns so output coordinates align to the cropped image origin.
 
-    If pixel_size_um is provided, output coordinates are converted to pixel units:
-    coord_px = (coord_um - origin_um) / pixel_size_um.
-    Otherwise output remains in original coordinate units after subtraction.
-    
-    Used by:
-    - Coordinate-filtered tabular/HDF5/Zarr outputs (fallback when no boundary data)
-    - ID-filtered tabular/HDF5/Zarr outputs (when x/y columns are present for QC)
-    
+    Uses a pixel-boundary-aligned origin when pixel_size_um is provided, so that
+    entity coordinate (0, 0) corresponds to image pixel (0, 0) in the cropped image.
+    Coordinates remain in micrometers — only the origin offset is subtracted.
+
     Args:
         df: DataFrame with rows in the region (pre-filtered by containment or ID)
         region: LASSO region defining the crop bounding box
         x_col: Name of x-coordinate column
         y_col: Name of y-coordinate column
-        pixel_size_um: Pixel size for image-aligned origin computation
-    
+        pixel_size_um: Pixel size for pixel-boundary-aligned origin computation
+
     Returns:
-        DataFrame with coordinates shifted so crop origin is (0, 0)
+        DataFrame with coordinates shifted so crop origin is (0, 0) in micrometers
     """
     if df.empty:
         return df
 
-    # Compute crop origin using image-aligned logic
     origin_x, origin_y = _region_crop_origin_um(region, pixel_size_um=pixel_size_um)
-
-    x = pd.to_numeric(df[x_col], errors="coerce") - origin_x
-    y = pd.to_numeric(df[y_col], errors="coerce") - origin_y
-    if pixel_size_um is not None and pixel_size_um > 0:
-        x = x / pixel_size_um
-        y = y / pixel_size_um
-
-    df[x_col] = x
-    df[y_col] = y
+    df[x_col] = pd.to_numeric(df[x_col], errors="coerce") - origin_x
+    df[y_col] = pd.to_numeric(df[y_col], errors="coerce") - origin_y
     return df
 
 
@@ -601,7 +589,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     indices = np.asarray(row_indices, dtype=np.int64)
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
-    scale_to_pixels = pixel_size_um is not None and pixel_size_um > 0
     
     logger.debug(
         "[filter_zarr_zip_preserve_schema] START: input=%s output=%s rows_before=%d rows_after=%d",
@@ -645,12 +632,10 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     leaf = path_key.split("/")[-1].lower()
 
                     def _x_shift(values):
-                        shifted = values - x0
-                        return shifted / pixel_size_um if scale_to_pixels else shifted
+                        return values - x0
 
                     def _y_shift(values):
-                        shifted = values - y0
-                        return shifted / pixel_size_um if scale_to_pixels else shifted
+                        return values - y0
 
                     try:
                         if leaf == "polygon_vertices" and getattr(data_arr, "ndim", 0) == 3 and data_arr.shape[0] == 2:
