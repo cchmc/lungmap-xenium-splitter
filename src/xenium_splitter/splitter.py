@@ -735,13 +735,19 @@ def _split_file_group(
                 subset = per_region_subsets[region.region_id]
                 dest = config.output_dir / f"region_{region.region_id}" / rel
                 if file_name_lower.endswith(".zarr.zip"):
+                    transcript_id_values = None
+                    if file_name_lower == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
+                        transcript_id_values = subset["transcript_id"].to_numpy()
+
                     ok = filter_zarr_zip_by_row_indices_preserve_schema(
                         fp,
                         dest,
                         subset.index.to_numpy(dtype=int),
                         base_row_count=len(table),
-                        rebase_region=region if (xy_cols is not None or file_name_lower == "cells.zarr.zip") else None,
+                        rebase_region=region if (xy_cols is not None or file_name_lower in {"cells.zarr.zip", "transcripts.zarr.zip"}) else None,
                         pixel_size_um=config.pixel_size_um,
+                        transcript_id_values=transcript_id_values,
+                        transcript_table=subset if file_name_lower == "transcripts.zarr.zip" else None,
                     )
                     if not ok:
                         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1561,12 +1567,29 @@ def _split_zarr(
     """
     lower_name = file_path.name.lower()
 
-    def _write_schema_preserving_subset(source_table: pd.DataFrame, subset: pd.DataFrame, destination: Path) -> None:
+    def _write_schema_preserving_subset(
+        source_table: pd.DataFrame,
+        subset: pd.DataFrame,
+        destination: Path,
+        *,
+        region=None,
+    ) -> None:
+        transcript_id_values = None
+        if lower_name == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
+            transcript_id_values = subset["transcript_id"].to_numpy()
+
+        # Rebase/retile for cell/transcript zarrs to keep Explorer spatial data consistent.
+        rebase_region = region if lower_name in {"cells.zarr.zip", "transcripts.zarr.zip"} else None
+
         ok = filter_zarr_zip_by_row_indices_preserve_schema(
             file_path,
             destination,
             subset.index.to_numpy(dtype=int),
             base_row_count=len(source_table),
+            rebase_region=rebase_region,
+            pixel_size_um=config.pixel_size_um,
+            transcript_id_values=transcript_id_values,
+            transcript_table=subset if lower_name == "transcripts.zarr.zip" else None,
         )
         if not ok:
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -1629,6 +1652,7 @@ def _split_zarr(
                     fallback_table,
                     subset,
                     destination,
+                    region=region,
                 ),
             ):
                 return
@@ -1649,7 +1673,12 @@ def _split_zarr(
                     rows_by_region[region.region_id] = len(subset)
                     rows_written_total += len(subset)
                     destination = config.output_dir / f"region_{region.region_id}" / relative_path
-                    _write_schema_preserving_subset(fallback_table, subset, destination)
+                    _write_schema_preserving_subset(
+                        fallback_table,
+                        subset,
+                        destination,
+                        region=region,
+                    )
 
                 metrics.files_processed += 1
                 metrics.file_metrics.append(
@@ -1690,6 +1719,7 @@ def _split_zarr(
             table,
             subset,
             destination,
+            region=region,
         ),
     ):
         return
@@ -1713,6 +1743,7 @@ def _split_zarr(
                     fallback_table,
                     subset,
                     destination,
+                    region=region,
                 ),
             ):
                 return
@@ -1733,7 +1764,12 @@ def _split_zarr(
                     rows_by_region[region.region_id] = len(subset)
                     rows_written_total += len(subset)
                     destination = config.output_dir / f"region_{region.region_id}" / relative_path
-                    _write_schema_preserving_subset(fallback_table, subset, destination)
+                    _write_schema_preserving_subset(
+                        fallback_table,
+                        subset,
+                        destination,
+                        region=region,
+                    )
 
                 metrics.files_processed += 1
                 metrics.file_metrics.append(
@@ -1775,7 +1811,12 @@ def _split_zarr(
         rows_written_total += len(subset)
 
         destination = config.output_dir / f"region_{region.region_id}" / relative_path
-        _write_schema_preserving_subset(table, subset, destination)
+        _write_schema_preserving_subset(
+            table,
+            subset,
+            destination,
+            region=region,
+        )
 
     metrics.files_processed += 1
     metrics.file_metrics.append(

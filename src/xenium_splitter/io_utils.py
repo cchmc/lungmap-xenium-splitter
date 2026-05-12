@@ -573,6 +573,8 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
     base_row_count: int,
     rebase_region: LassoRegion | None = None,
     pixel_size_um: float | None = None,
+    transcript_id_values=None,
+    transcript_table=None,
 ) -> bool:
     """Filter a Zarr ZIP while preserving its original hierarchy/schema.
 
@@ -588,6 +590,17 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     indices = np.asarray(row_indices, dtype=np.int64)
+    transcript_ids = None
+    transcript_ids_sorted = None
+    if transcript_id_values is not None:
+        try:
+            transcript_ids = np.asarray(list(transcript_id_values), dtype=np.int64)
+            transcript_ids = transcript_ids[np.isfinite(transcript_ids)] if transcript_ids.size else transcript_ids
+            transcript_ids = np.unique(transcript_ids.astype(np.int64, copy=False))
+            transcript_ids_sorted = transcript_ids
+        except Exception:
+            transcript_ids = None
+            transcript_ids_sorted = None
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
     
     logger.debug(
@@ -638,6 +651,12 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         return values - y0
 
                     try:
+                        if leaf == "location" and getattr(data_arr, "ndim", 0) == 2 and data_arr.shape[1] >= 2:
+                            out = data_arr.copy()
+                            out[:, 0] = _x_shift(out[:, 0])
+                            out[:, 1] = _y_shift(out[:, 1])
+                            return out
+
                         if leaf == "polygon_vertices" and getattr(data_arr, "ndim", 0) == 3 and data_arr.shape[0] == 2:
                             out = data_arr.copy()
                             # Shape is (2, N, 26): dim0=[cell_poly, nucleus_poly],
@@ -672,6 +691,58 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                     return data_arr
 
+                transcript_id_mode = {"kind": None}
+
+                def _build_transcript_group_mask(id_arr) -> np.ndarray | None:
+                    if transcript_ids is None:
+                        return None
+                    if not hasattr(id_arr, "shape") or getattr(id_arr, "ndim", 0) != 2 or id_arr.shape[1] < 1:
+                        return None
+
+                    low = id_arr[:, 0].astype(np.int64, copy=False)
+                    one_shift_48 = (np.int64(1) << np.int64(48))
+
+                    def _mode_values(kind: str) -> np.ndarray:
+                        if kind == "low_plus_2pow48":
+                            return low + one_shift_48
+                        if kind == "low":
+                            return low
+                        if kind == "pair_u32":
+                            hi = id_arr[:, 1].astype(np.int64, copy=False) if id_arr.shape[1] > 1 else np.zeros_like(low)
+                            return (hi << np.int64(32)) + low
+                        return low
+
+                    candidates = ["low_plus_2pow48", "low", "pair_u32"]
+                    hits_by_kind: dict[str, int] = {}
+                    vals_by_kind: dict[str, np.ndarray] = {}
+                    for cand in candidates:
+                        cand_vals = _mode_values(cand)
+                        vals_by_kind[cand] = cand_vals
+                        if transcript_ids_sorted is None or transcript_ids_sorted.size == 0:
+                            hits_by_kind[cand] = 0
+                        else:
+                            pos = np.searchsorted(transcript_ids_sorted, cand_vals)
+                            in_bounds = (pos >= 0) & (pos < transcript_ids_sorted.size)
+                            hits_by_kind[cand] = int(np.sum(transcript_ids_sorted[pos[in_bounds]] == cand_vals[in_bounds])) if np.any(in_bounds) else 0
+
+                    best_kind = max(candidates, key=lambda k: hits_by_kind.get(k, 0))
+                    current_kind = transcript_id_mode["kind"]
+                    current_hits = hits_by_kind.get(current_kind, 0) if current_kind is not None else -1
+                    best_hits = hits_by_kind.get(best_kind, 0)
+                    if current_kind is None or (best_hits > current_hits and best_hits > 0):
+                        transcript_id_mode["kind"] = best_kind
+
+                    kind = transcript_id_mode["kind"] or best_kind
+                    vals = vals_by_kind.get(kind, _mode_values(kind))
+                    if transcript_ids_sorted is None or transcript_ids_sorted.size == 0:
+                        return np.zeros(vals.shape[0], dtype=bool)
+                    pos = np.searchsorted(transcript_ids_sorted, vals)
+                    in_bounds = (pos >= 0) & (pos < transcript_ids_sorted.size)
+                    out = np.zeros(vals.shape[0], dtype=bool)
+                    if np.any(in_bounds):
+                        out[in_bounds] = transcript_ids_sorted[pos[in_bounds]] == vals[in_bounds]
+                    return out
+
                 def _copy_group(src_group, dst_group, path_prefix: str = "") -> None:
                     for attr_key, attr_val in dict(src_group.attrs).items():
                         dst_group.attrs[attr_key] = attr_val
@@ -680,12 +751,29 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     if "number_cells" in dict(dst_group.attrs):
                         dst_group.attrs["number_cells"] = len(indices)
 
+                    group_row_mask = None
+                    under_grids = path_prefix == "grids" or path_prefix.startswith("grids/")
+                    if transcript_ids is not None and (not under_grids) and "id" in src_group:
+                        try:
+                            id_node = src_group["id"]
+                            if hasattr(id_node, "shape") and getattr(id_node, "ndim", 0) == 2 and id_node.shape[1] >= 1:
+                                group_row_mask = _build_transcript_group_mask(id_node[:])
+                        except Exception:
+                            group_row_mask = None
+
                     for key in src_group.keys():
                         node = src_group[key]
                         key_path = f"{path_prefix}/{key}" if path_prefix else str(key)
                         if hasattr(node, "shape") and hasattr(node, "dtype"):
                             data = node[:]
-                            if getattr(node, "ndim", 0) >= 1:
+                            if (
+                                group_row_mask is not None
+                                and getattr(node, "ndim", 0) >= 1
+                                and len(data.shape) >= 1
+                                and data.shape[0] == group_row_mask.shape[0]
+                            ):
+                                data = data[group_row_mask, ...]
+                            elif getattr(node, "ndim", 0) >= 1:
                                 match_axes = [ax for ax, sz in enumerate(node.shape) if int(sz) == int(base_row_count)]
                                 if match_axes:
                                     data = np.take(data, indices, axis=match_axes[0])
@@ -724,7 +812,514 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             dst_sub = dst_group.require_group(key)
                             _copy_group(node, dst_sub, key_path)
 
+                def _rebuild_transcript_grids_and_density(dst_root) -> None:
+                    """Re-tile transcript grids after coordinate rebasing and recompute density/gene.
+
+                    transcripts.zarr stores transcript rows inside grids/[level]/[tile].
+                    After rebasing locations, rows must be moved into new tiles based on the
+                    grid size for each level; otherwise tile keys and locations are inconsistent.
+                    """
+                    if transcript_ids is None or "grids" not in dst_root:
+                        return
+
+                    grids_group = dst_root["grids"]
+                    old_grid_attrs = dict(grids_group.attrs)
+                    level_names = sorted(list(grids_group.keys()), key=lambda s: int(str(s)) if str(s).isdigit() else str(s))
+                    if not level_names:
+                        return
+
+                    base_grid_size = 250.0
+                    try:
+                        gs = old_grid_attrs.get("grid_size", [250.0])
+                        if isinstance(gs, (list, tuple)) and len(gs) > 0:
+                            base_grid_size = float(gs[0])
+                    except Exception:
+                        pass
+
+                    rebuilt_levels: list[tuple[str, list[tuple[str, dict[str, np.ndarray], dict[str, dict]]]]] = []
+                    grid_keys_by_level: list[list[str]] = []
+                    grid_counts_by_level: list[list[int]] = []
+                    level0_total = 0
+
+                    def _tile_size_for_level(level_name: str, level_index: int) -> float:
+                        """Return tile size for a level, preferring explicit sizes from attrs.
+
+                        Some datasets store a per-level grid_size list. Preserve that exactly
+                        when available; otherwise fall back to the legacy base*2^level behavior.
+                        """
+                        try:
+                            gs = old_grid_attrs.get("grid_size", [base_grid_size])
+                            if isinstance(gs, (list, tuple)) and len(gs) > 0:
+                                if len(gs) >= len(level_names):
+                                    return float(gs[level_index])
+                                if len(gs) >= 1:
+                                    lvl_num = int(str(level_name)) if str(level_name).isdigit() else level_index
+                                    return float(gs[0]) * (2.0 ** float(lvl_num))
+                        except Exception:
+                            pass
+                        lvl_num = int(str(level_name)) if str(level_name).isdigit() else level_index
+                        return float(base_grid_size) * (2.0 ** float(lvl_num))
+
+                    def _detect_xy_cols(df) -> tuple[str | None, str | None]:
+                        x_candidates = ["x_location", "x", "global_x", "x_position"]
+                        y_candidates = ["y_location", "y", "global_y", "y_position"]
+                        x_col = next((c for c in x_candidates if c in df.columns), None)
+                        y_col = next((c for c in y_candidates if c in df.columns), None)
+                        return x_col, y_col
+
+                    def _build_from_transcript_table(table_df, template_level_group):
+                        if table_df is None or getattr(table_df, "empty", True):
+                            return None, None
+                        x_col, y_col = _detect_xy_cols(table_df)
+                        if x_col is None or y_col is None:
+                            return None, None
+
+                        if transcript_ids is not None and "transcript_id" in table_df.columns:
+                            ids_arr = pd.to_numeric(table_df["transcript_id"], errors="coerce")
+                            ids_arr = ids_arr.to_numpy(dtype=np.float64)
+                            finite = np.isfinite(ids_arr)
+                            ids64 = ids_arr[finite].astype(np.int64, copy=False)
+                            keep = np.searchsorted(transcript_ids_sorted, ids64)
+                            inb = (keep >= 0) & (keep < transcript_ids_sorted.size)
+                            mask = np.zeros(len(table_df), dtype=bool)
+                            if np.any(inb):
+                                sel = np.zeros(ids64.shape[0], dtype=bool)
+                                sel[inb] = transcript_ids_sorted[keep[inb]] == ids64[inb]
+                                mask[np.where(finite)[0]] = sel
+                            table_df = table_df.loc[mask].copy()
+                            if table_df.empty:
+                                return None, None
+
+                        x = pd.to_numeric(table_df[x_col], errors="coerce").to_numpy(dtype=np.float64)
+                        y = pd.to_numeric(table_df[y_col], errors="coerce").to_numpy(dtype=np.float64)
+                        z_col = "z_location" if "z_location" in table_df.columns else ("z" if "z" in table_df.columns else None)
+                        if z_col is not None:
+                            z = pd.to_numeric(table_df[z_col], errors="coerce").to_numpy(dtype=np.float64)
+                            # Keep rows with valid x/y even when z is missing; Xenium transcripts are effectively 2D.
+                            z = np.nan_to_num(z, nan=0.0)
+                        else:
+                            z = np.zeros_like(x)
+                        finite_loc = np.isfinite(x) & np.isfinite(y)
+                        x = x[finite_loc]
+                        y = y[finite_loc]
+                        z = z[finite_loc]
+                        if x.size == 0:
+                            return None, None
+
+                        n = x.shape[0]
+                        merged = {
+                            "location": np.stack([x, y, z], axis=1).astype(np.float32, copy=False)
+                        }
+
+                        # Build id from transcript_id where available (10x convention: low + 2^48)
+                        if "transcript_id" in table_df.columns:
+                            tid = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
+                            tid = np.nan_to_num(tid, nan=0.0).astype(np.int64, copy=False)
+                            low = (tid - (np.int64(1) << np.int64(48))).astype(np.int64, copy=False)
+                            low = np.maximum(low, 0)
+                            merged["id"] = np.stack([low.astype(np.uint32, copy=False), np.zeros(n, dtype=np.uint32)], axis=1)
+
+                        gene_index_map = dst_root.attrs.get("gene_index_map", {})
+                        if "feature_name" in table_df.columns and isinstance(gene_index_map, dict):
+                            gene_names = table_df.loc[finite_loc, "feature_name"].astype(str).to_numpy()
+                            gene_idx = np.array([gene_index_map.get(g, 65535) for g in gene_names], dtype=np.uint16)
+                        elif "gene" in table_df.columns:
+                            gene_idx = pd.to_numeric(table_df.loc[finite_loc, "gene"], errors="coerce").fillna(65535).astype(np.int64).to_numpy()
+                            gene_idx = np.clip(gene_idx, 0, 65535).astype(np.uint16)
+                        else:
+                            gene_idx = np.full(n, 65535, dtype=np.uint16)
+                        merged["gene_identity"] = gene_idx.reshape(-1, 1)
+
+                        # Best-effort codeword assignment from codeword->gene mapping.
+                        codeword_map = dst_root.attrs.get("codeword_gene_mapping", [])
+                        codeword_identity = np.zeros(n, dtype=np.uint16)
+                        if isinstance(codeword_map, (list, tuple)) and len(codeword_map) > 0:
+                            first_by_gene: dict[int, int] = {}
+                            for cw, gi in enumerate(codeword_map):
+                                gi_int = int(gi)
+                                if gi_int not in first_by_gene:
+                                    first_by_gene[gi_int] = int(cw)
+                            for i, gi in enumerate(gene_idx.astype(np.int64, copy=False)):
+                                codeword_identity[i] = np.uint16(first_by_gene.get(int(gi), 0))
+                        merged["codeword_identity"] = codeword_identity.reshape(-1, 1)
+
+                        merged["valid"] = np.ones((n, 1), dtype=np.uint8)
+                        merged["status"] = np.zeros((n, 1), dtype=np.uint16)
+
+                        # Template metadata from first tile arrays
+                        template_meta: dict[str, dict] = {}
+                        try:
+                            for tname in template_level_group.keys():
+                                tg = template_level_group[tname]
+                                for aname in tg.keys():
+                                    anode = tg[aname]
+                                    if not hasattr(anode, "shape") or not hasattr(anode, "dtype"):
+                                        continue
+                                    if aname not in template_meta:
+                                        template_meta[aname] = {
+                                            "dtype": anode.dtype,
+                                            "chunks": getattr(anode, "chunks", None),
+                                            "compressor": getattr(anode, "compressor", None),
+                                            "compressors": getattr(anode, "compressors", None),
+                                            "attrs": dict(anode.attrs),
+                                            "shape": tuple(anode.shape),
+                                        }
+                                break
+                        except Exception:
+                            pass
+
+                        for aname, meta in template_meta.items():
+                            if aname in merged:
+                                continue
+                            shp = meta.get("shape", ())
+                            if len(shp) == 0:
+                                continue
+                            tail = tuple(int(s) for s in shp[1:])
+                            arr_shape = (n,) + tail
+                            merged[aname] = np.zeros(arr_shape, dtype=meta.get("dtype", np.float32))
+
+                        return merged, template_meta
+
+                    def _collect_level_arrays(level_group):
+                        level_arrays: dict[str, list[np.ndarray]] = {}
+                        array_meta: dict[str, dict] = {}
+                        if transcript_ids is not None:
+                            transcript_id_mode["kind"] = None
+                        for tile_name in list(level_group.keys()):
+                            tile_group = level_group[tile_name]
+                            if "location" not in tile_group:
+                                continue
+                            try:
+                                location = tile_group["location"][:]
+                            except Exception:
+                                continue
+                            if getattr(location, "ndim", 0) != 2 or location.shape[0] == 0:
+                                continue
+
+                            row_count = int(location.shape[0])
+                            tile_mask = None
+                            if transcript_ids is not None:
+                                if "id" not in tile_group:
+                                    continue
+                                try:
+                                    tile_mask = _build_transcript_group_mask(tile_group["id"][:])
+                                except Exception:
+                                    tile_mask = None
+                                if tile_mask is None or tile_mask.shape[0] != row_count:
+                                    continue
+
+                            for arr_name in tile_group.keys():
+                                arr_node = tile_group[arr_name]
+                                if not hasattr(arr_node, "shape") or not hasattr(arr_node, "dtype"):
+                                    continue
+                                try:
+                                    arr_data = arr_node[:]
+                                except Exception:
+                                    continue
+                                if getattr(arr_data, "ndim", 0) < 1 or int(arr_data.shape[0]) != row_count:
+                                    continue
+
+                                if tile_mask is not None:
+                                    arr_data = arr_data[tile_mask, ...]
+                                    if arr_data.shape[0] == 0:
+                                        continue
+
+                                level_arrays.setdefault(arr_name, []).append(arr_data)
+                                if arr_name not in array_meta:
+                                    array_meta[arr_name] = {
+                                        "dtype": arr_data.dtype,
+                                        "chunks": getattr(arr_node, "chunks", None),
+                                        "compressor": getattr(arr_node, "compressor", None),
+                                        "compressors": getattr(arr_node, "compressors", None),
+                                        "attrs": dict(arr_node.attrs),
+                                    }
+                        if "location" not in level_arrays or len(level_arrays["location"]) == 0:
+                            return None, None
+                        merged = {name: np.concatenate(parts, axis=0) for name, parts in level_arrays.items()}
+                        return merged, array_meta
+
+                    base_level_name = "0" if "0" in grids_group else str(level_names[0])
+                    merged_base = None
+                    array_meta_base = None
+                    built_from_table = False
+                    if transcript_table is not None:
+                        merged_base, array_meta_base = _build_from_transcript_table(transcript_table, grids_group[base_level_name])
+                        built_from_table = merged_base is not None and array_meta_base is not None
+                    if merged_base is None or array_meta_base is None:
+                        merged_base, array_meta_base = _collect_level_arrays(grids_group[base_level_name])
+                    if merged_base is None or array_meta_base is None:
+                        return
+
+                    if transcript_ids is not None and "id" in merged_base and not built_from_table:
+                        try:
+                            # Level-0 tiles can contain overlapping rows; collapse duplicates by id.
+                            id_arr = merged_base.get("id")
+                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[0] > 0:
+                                low = id_arr[:, 0].astype(np.int64, copy=False)
+                                kind = transcript_id_mode.get("kind")
+                                if kind == "low_plus_2pow48":
+                                    decoded = low + (np.int64(1) << np.int64(48))
+                                elif kind == "pair_u32" and id_arr.shape[1] > 1:
+                                    hi = id_arr[:, 1].astype(np.int64, copy=False)
+                                    decoded = (hi << np.int64(32)) + low
+                                else:
+                                    decoded = low
+
+                                _, uniq_idx = np.unique(decoded, return_index=True)
+                                uniq_idx = np.sort(uniq_idx.astype(np.int64, copy=False))
+                                for arr_name in list(merged_base.keys()):
+                                    merged_base[arr_name] = merged_base[arr_name][uniq_idx, ...]
+                        except Exception:
+                            logger.debug("Base transcript dedup failed during grids rebuild", exc_info=True)
+
+                    location = merged_base["location"]
+                    x = location[:, 0]
+                    y = location[:, 1]
+                    finite_mask = np.isfinite(x) & np.isfinite(y)
+                    if not np.any(finite_mask):
+                        return
+                    for arr_name in list(merged_base.keys()):
+                        merged_base[arr_name] = merged_base[arr_name][finite_mask, ...]
+
+                    for level_idx, level_name in enumerate(level_names):
+                        tile_size = _tile_size_for_level(str(level_name), level_idx)
+                        gx = np.floor(merged_base["location"][:, 0] / tile_size).astype(np.int64, copy=False)
+                        gy = np.floor(merged_base["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+
+                        coords = np.stack([gx, gy], axis=1)
+                        uniq_coords, inverse = np.unique(coords, axis=0, return_inverse=True)
+
+                        level_tiles: list[tuple[str, dict[str, np.ndarray], dict[str, dict]]] = []
+                        level_keys: list[str] = []
+                        level_counts: list[int] = []
+
+                        for i, (tx, ty) in enumerate(uniq_coords):
+                            row_mask = inverse == i
+                            tile_key = f"{int(tx)},{int(ty)}"
+                            tile_arrays = {
+                                name: arr[row_mask, ...]
+                                for name, arr in merged_base.items()
+                            }
+                            level_tiles.append((tile_key, tile_arrays, array_meta_base))
+                            level_keys.append(tile_key)
+                            level_counts.append(int(tile_arrays["location"].shape[0]))
+
+                        if str(level_name) == "0":
+                            level0_total = int(sum(level_counts))
+
+                        rebuilt_levels.append((str(level_name), level_tiles))
+                        grid_keys_by_level.append(level_keys)
+                        grid_counts_by_level.append(level_counts)
+
+                    # Replace grids subtree with re-tiled groups
+                    if "grids" in dst_root:
+                        del dst_root["grids"]
+                    new_grids = dst_root.require_group("grids")
+
+                    for level_name, level_tiles in rebuilt_levels:
+                        level_group = new_grids.require_group(level_name)
+                        for tile_key, tile_arrays, meta in level_tiles:
+                            tile_group = level_group.require_group(tile_key)
+                            for arr_name, arr_data in tile_arrays.items():
+                                m = meta.get(arr_name, {})
+                                chunks = m.get("chunks")
+                                create_kwargs = {
+                                    "shape": arr_data.shape,
+                                    "dtype": arr_data.dtype,
+                                    "data": arr_data,
+                                }
+                                if chunks is not None and len(chunks) == len(arr_data.shape):
+                                    create_kwargs["chunks"] = tuple(min(int(c), int(s)) for c, s in zip(chunks, arr_data.shape))
+                                compressors = m.get("compressors")
+                                compressor = m.get("compressor")
+                                if compressors is not None:
+                                    create_kwargs["compressors"] = compressors
+                                elif compressor is not None:
+                                    create_kwargs["compressor"] = compressor
+
+                                try:
+                                    dst_arr = tile_group.create_dataset(arr_name, **create_kwargs)
+                                except TypeError:
+                                    create_kwargs.pop("compressors", None)
+                                    create_kwargs.pop("compressor", None)
+                                    dst_arr = tile_group.create_dataset(arr_name, **create_kwargs)
+
+                                for ak, av in m.get("attrs", {}).items():
+                                    dst_arr.attrs[ak] = av
+
+                    # Recompute grids attrs
+                    new_grid_attrs = dict(old_grid_attrs)
+                    new_grid_attrs["number_levels"] = len(rebuilt_levels)
+                    new_grid_attrs["grid_keys"] = grid_keys_by_level
+                    new_grid_attrs["grid_number_objects"] = grid_counts_by_level
+                    new_grid_attrs["grid_array_shapes"] = [[{} for _ in keys] for keys in grid_keys_by_level]
+                    new_grid_attrs.setdefault("grid_key_names", ["grid_x_loc", "grid_y_loc"])
+                    new_grid_attrs.setdefault("grid_size", [base_grid_size])
+                    new_grid_attrs.setdefault("grid_zip", False)
+                    for ak, av in new_grid_attrs.items():
+                        new_grids.attrs[ak] = av
+
+                    # Update number_rnas at root to filtered level-0 transcript count.
+                    try:
+                        dst_root.attrs["number_rnas"] = int(level0_total)
+                    except Exception:
+                        pass
+
+                    # Recompute density/gene CSR from level 0 locations and gene identities.
+                    if "density" in dst_root and "gene" in dst_root["density"] and "0" in new_grids:
+                        try:
+                            density_gene = dst_root["density"]["gene"]
+                            d_attrs = dict(density_gene.attrs)
+                            gene_names = d_attrs.get("gene_names", [])
+                            n_genes = int(len(gene_names))
+                            grid_sz = d_attrs.get("grid_size", [10.0, 10.0])
+                            dx = float(grid_sz[0]) if isinstance(grid_sz, (list, tuple)) and len(grid_sz) > 0 else 10.0
+                            dy = float(grid_sz[1]) if isinstance(grid_sz, (list, tuple)) and len(grid_sz) > 1 else dx
+                            origin = d_attrs.get("origin", {"x": 0.0, "y": 0.0})
+                            ox = float(origin.get("x", 0.0)) if isinstance(origin, dict) else 0.0
+                            oy = float(origin.get("y", 0.0)) if isinstance(origin, dict) else 0.0
+
+                            # After coordinate rebasing into crop-local space, density origin should be local as well.
+                            if rebase_region is not None:
+                                ox = 0.0
+                                oy = 0.0
+
+                            target_rows = None
+                            target_cols = None
+                            if rebase_region is not None:
+                                min_x, min_y, max_x, max_y = rebase_region.bounds
+                                if pixel_size_um is not None and pixel_size_um > 0:
+                                    min_x = max(int(math.floor(min_x / pixel_size_um)), 0) * pixel_size_um
+                                    min_y = max(int(math.floor(min_y / pixel_size_um)), 0) * pixel_size_um
+                                    max_x = int(math.ceil(max_x / pixel_size_um)) * pixel_size_um
+                                    max_y = int(math.ceil(max_y / pixel_size_um)) * pixel_size_um
+                                width_um = max(0.0, float(max_x) - float(min_x))
+                                height_um = max(0.0, float(max_y) - float(min_y))
+                                target_cols = max(1, int(math.ceil(width_um / dx))) if dx > 0 else None
+                                target_rows = max(1, int(math.ceil(height_um / dy))) if dy > 0 else None
+
+                            x_parts: list[np.ndarray] = []
+                            y_parts: list[np.ndarray] = []
+                            g_parts: list[np.ndarray] = []
+                            v_parts: list[np.ndarray] = []
+                            s_parts: list[np.ndarray] = []
+
+                            for tile_key in new_grids["0"].keys():
+                                tg = new_grids["0"][tile_key]
+                                if "location" not in tg or "gene_identity" not in tg:
+                                    continue
+                                loc = tg["location"][:]
+                                gi = tg["gene_identity"][:]
+                                if loc.shape[0] == 0:
+                                    continue
+                                x_parts.append(loc[:, 0])
+                                y_parts.append(loc[:, 1])
+                                g_parts.append(gi[:, 0] if gi.ndim == 2 else gi)
+                                if "valid" in tg:
+                                    vv = tg["valid"][:]
+                                    v_parts.append(vv[:, 0] if vv.ndim == 2 else vv)
+                                if "status" in tg:
+                                    st = tg["status"][:]
+                                    s_parts.append(st[:, 0] if st.ndim == 2 else st)
+
+                            if x_parts and n_genes > 0:
+                                x = np.concatenate(x_parts).astype(np.float64, copy=False)
+                                y = np.concatenate(y_parts).astype(np.float64, copy=False)
+                                gene = np.concatenate(g_parts).astype(np.int64, copy=False)
+                                valid_mask = np.isfinite(x) & np.isfinite(y) & (gene >= 0) & (gene < n_genes) & (gene != 65535)
+                                if v_parts:
+                                    v = np.concatenate(v_parts)
+                                    valid_mask &= (v != 0)
+                                if s_parts:
+                                    st = np.concatenate(s_parts)
+                                    valid_mask &= (st == 0)
+
+                                x = x[valid_mask]
+                                y = y[valid_mask]
+                                gene = gene[valid_mask]
+
+                                if x.size > 0:
+                                    gx = np.floor((x - ox) / dx).astype(np.int64, copy=False)
+                                    gy = np.floor((y - oy) / dy).astype(np.int64, copy=False)
+
+                                    if target_cols is not None and target_rows is not None:
+                                        cols = int(target_cols)
+                                        rows = int(target_rows)
+                                        keep = (gx >= 0) & (gy >= 0) & (gx < cols) & (gy < rows)
+                                    else:
+                                        keep = (gx >= 0) & (gy >= 0)
+
+                                    gx = gx[keep]
+                                    gy = gy[keep]
+                                    gene = gene[keep]
+
+                                    if gx.size > 0:
+                                        if target_cols is None or target_rows is None:
+                                            cols = int(np.max(gx)) + 1
+                                            rows = int(np.max(gy)) + 1
+
+                                        row_index = gene * rows + gy
+                                        packed = row_index * cols + gx
+                                        uniq, counts = np.unique(packed, return_counts=True)
+                                        row_u = (uniq // cols).astype(np.int64, copy=False)
+                                        col_u = (uniq % cols).astype(np.int64, copy=False)
+
+                                        n_rows_total = int(n_genes * rows)
+                                        binc = np.bincount(row_u, minlength=n_rows_total)
+                                        indptr = np.empty(n_rows_total + 1, dtype=np.uint32)
+                                        indptr[0] = 0
+                                        indptr[1:] = np.cumsum(binc, dtype=np.uint64).astype(np.uint32, copy=False)
+
+                                        idx_dtype = np.uint16 if cols <= np.iinfo(np.uint16).max else np.uint32
+                                        data_dtype = np.uint16 if int(np.max(counts)) <= np.iinfo(np.uint16).max else np.uint32
+                                        indices = col_u.astype(idx_dtype, copy=False)
+                                        data = counts.astype(data_dtype, copy=False)
+                                    else:
+                                        rows = int(target_rows) if target_rows is not None else 1
+                                        cols = int(target_cols) if target_cols is not None else 1
+                                        indptr = np.zeros(n_genes * rows + 1, dtype=np.uint32)
+                                        indices = np.zeros(0, dtype=np.uint16)
+                                        data = np.zeros(0, dtype=np.uint16)
+                                else:
+                                    rows, cols = 1, 1
+                                    indptr = np.zeros(n_genes * rows + 1, dtype=np.uint32)
+                                    indices = np.zeros(0, dtype=np.uint16)
+                                    data = np.zeros(0, dtype=np.uint16)
+                            else:
+                                rows, cols = 1, 1
+                                indptr = np.zeros(max(1, n_genes) + 1, dtype=np.uint32)
+                                indices = np.zeros(0, dtype=np.uint16)
+                                data = np.zeros(0, dtype=np.uint16)
+
+                            for arr_name in ["data", "indices", "indptr"]:
+                                if arr_name in density_gene:
+                                    del density_gene[arr_name]
+
+                            density_gene.create_dataset("data", shape=data.shape, dtype=data.dtype, data=data, chunks=(min(max(1, data.shape[0]), 2_000_000),))
+                            density_gene.create_dataset("indices", shape=indices.shape, dtype=indices.dtype, data=indices, chunks=(min(max(1, indices.shape[0]), 2_000_000),))
+                            density_gene.create_dataset("indptr", shape=indptr.shape, dtype=indptr.dtype, data=indptr, chunks=(indptr.shape[0],))
+
+                            density_gene.attrs["rows"] = int(rows)
+                            density_gene.attrs["cols"] = int(cols)
+                            density_gene.attrs["origin"] = {"x": float(ox), "y": float(oy)}
+                        except Exception:
+                            logger.debug("Failed to rebuild transcript density/gene; keeping copied values", exc_info=True)
+
                 _copy_group(src_root, dst_root)
+                if rebase_region is not None:
+                    try:
+                        coord_space = str(dst_root.attrs.get("coordinate_space", ""))
+                        if coord_space:
+                            if "global" in coord_space:
+                                dst_root.attrs["coordinate_space"] = coord_space.replace("global", "local")
+                            elif "local" not in coord_space:
+                                dst_root.attrs["coordinate_space"] = f"{coord_space}_local"
+                        else:
+                            dst_root.attrs["coordinate_space"] = "region_local_micron"
+                        dst_root.attrs["spatial_units"] = "micron"
+                    except Exception:
+                        logger.debug("Failed to update coordinate space metadata after rebasing", exc_info=True)
+                _rebuild_transcript_grids_and_density(dst_root)
                 _rezip_zarr(Path(tmpdir_out), output_path)
                 logger.debug(
                     "[filter_zarr_zip_preserve_schema] SUCCESS: output=%s size=%dB",
