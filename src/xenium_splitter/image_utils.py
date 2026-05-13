@@ -263,6 +263,22 @@ def mask_and_crop_region(image: np.ndarray, polygon: Polygon, pixel_size_um: flo
     min_y_i = max(min_y_i, 0)
     max_x_i = min(max_x_i, width)
     max_y_i = min(max_y_i, height)
+    bbox_width_px = max(0, max_x_i - min_x_i)
+    bbox_height_px = max(0, max_y_i - min_y_i)
+    bbox_width_um = bbox_width_px * pixel_size_um if pixel_size_um is not None and pixel_size_um > 0 else None
+    bbox_height_um = bbox_height_px * pixel_size_um if pixel_size_um is not None and pixel_size_um > 0 else None
+    logger.debug(
+        "Image crop bbox: image_shape=%s bbox_px=(x:%d-%d,y:%d-%d,w:%d,h:%d) bbox_um=(w:%s,h:%s)",
+        image.shape,
+        min_x_i,
+        max_x_i,
+        min_y_i,
+        max_y_i,
+        bbox_width_px,
+        bbox_height_px,
+        f"{bbox_width_um:.3f}" if bbox_width_um is not None else "n/a",
+        f"{bbox_height_um:.3f}" if bbox_height_um is not None else "n/a",
+    )
     if min_x_i >= max_x_i or min_y_i >= max_y_i:
         return np.empty((0, 0), dtype=image.dtype)
 

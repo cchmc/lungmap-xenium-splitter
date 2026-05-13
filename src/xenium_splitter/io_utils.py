@@ -371,8 +371,34 @@ def rebase_table_coordinates_to_region_crop(
         return df
 
     origin_x, origin_y = _region_crop_origin_um(region, pixel_size_um=pixel_size_um)
-    df[x_col] = pd.to_numeric(df[x_col], errors="coerce") - origin_x
-    df[y_col] = pd.to_numeric(df[y_col], errors="coerce") - origin_y
+    x_before = pd.to_numeric(df[x_col], errors="coerce")
+    y_before = pd.to_numeric(df[y_col], errors="coerce")
+    df[x_col] = x_before - origin_x
+    df[y_col] = y_before - origin_y
+
+    try:
+        logger.debug(
+            "Rebasing coordinates: region=%s origin_um=(x:%.6f,y:%.6f) x_before=(%.6f,%.6f) y_before=(%.6f,%.6f) x_after=(%.6f,%.6f) y_after=(%.6f,%.6f)",
+            region.region_id,
+            origin_x,
+            origin_y,
+            float(x_before.min(skipna=True)),
+            float(x_before.max(skipna=True)),
+            float(y_before.min(skipna=True)),
+            float(y_before.max(skipna=True)),
+            float(df[x_col].min(skipna=True)),
+            float(df[x_col].max(skipna=True)),
+            float(df[y_col].min(skipna=True)),
+            float(df[y_col].max(skipna=True)),
+        )
+    except Exception:
+        logger.debug(
+            "Rebasing coordinates: region=%s origin_um=(x:%.6f,y:%.6f)",
+            region.region_id,
+            origin_x,
+            origin_y,
+            exc_info=True,
+        )
     return df
 
 
@@ -616,6 +642,17 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
             try:
                 with zipfile.ZipFile(zarr_zip_path, "r") as zf:
                     zf.extractall(tmpdir_in)
+
+                # Capture source .zarray schema key presence so output can match it.
+                source_zarray_has_dim_sep: dict[str, bool] = {}
+                for zarray_path in Path(tmpdir_in).rglob(".zarray"):
+                    try:
+                        rel = zarray_path.relative_to(Path(tmpdir_in)).as_posix()
+                        payload = json.loads(zarray_path.read_text(encoding="utf-8"))
+                        source_zarray_has_dim_sep[rel] = "dimension_separator" in payload
+                    except Exception:
+                        continue
+                source_uses_dim_sep = any(source_zarray_has_dim_sep.values())
 
                 src_root = zarr.open_group(tmpdir_in, mode="r")
 
@@ -917,7 +954,38 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             tid = np.nan_to_num(tid, nan=0.0).astype(np.int64, copy=False)
                             low = (tid - (np.int64(1) << np.int64(48))).astype(np.int64, copy=False)
                             low = np.maximum(low, 0)
-                            merged["id"] = np.stack([low.astype(np.uint32, copy=False), np.zeros(n, dtype=np.uint32)], axis=1)
+
+                            # Build transcript FOV index from parquet transcript fields.
+                            # Prefer fov_name->root attrs fov_names mapping when available,
+                            # then fall back to numeric parquet fov_index.
+                            fov_idx = np.zeros(n, dtype=np.uint32)
+                            resolved_mask = np.zeros(n, dtype=bool)
+
+                            if (not np.all(resolved_mask)) and "fov_name" in table_df.columns:
+                                fov_names = dst_root.attrs.get("fov_names", [])
+                                if isinstance(fov_names, (list, tuple)) and len(fov_names) > 0:
+                                    fov_to_idx = {str(name): i for i, name in enumerate(fov_names)}
+                                    mapped = table_df.loc[finite_loc, "fov_name"].map(fov_to_idx)
+                                    mapped_valid = mapped.notna().to_numpy(dtype=bool, copy=False)
+                                    mapped_u32 = mapped.fillna(0).astype(np.uint32).to_numpy(copy=False)
+                                    fill_mask = ~resolved_mask
+                                    use_mask = fill_mask & mapped_valid
+                                    fov_idx[use_mask] = mapped_u32[use_mask]
+                                    resolved_mask[use_mask] = True
+
+                            if (not np.all(resolved_mask)) and "fov_index" in table_df.columns:
+                                fi = pd.to_numeric(table_df.loc[finite_loc, "fov_index"], errors="coerce").to_numpy(dtype=np.float64)
+                                fi = np.nan_to_num(fi, nan=0.0)
+                                fi = np.maximum(fi, 0.0)
+                                fi_u32 = fi.astype(np.uint32, copy=False)
+                                fill_mask = ~resolved_mask
+                                fov_idx[fill_mask] = fi_u32[fill_mask]
+                                resolved_mask[fill_mask] = True
+
+                            merged["id"] = np.stack(
+                                [low.astype(np.uint32, copy=False), fov_idx],
+                                axis=1,
+                            )
 
                         gene_index_map = dst_root.attrs.get("gene_index_map", {})
                         if "feature_name" in table_df.columns and isinstance(gene_index_map, dict):
@@ -941,10 +1009,32 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     first_by_gene[gi_int] = int(cw)
                             for i, gi in enumerate(gene_idx.astype(np.int64, copy=False)):
                                 codeword_identity[i] = np.uint16(first_by_gene.get(int(gi), 0))
-                        merged["codeword_identity"] = codeword_identity.reshape(-1, 1)
+                        merged["codeword_identity"] = np.stack(
+                            [codeword_identity, np.zeros(n, dtype=np.uint16)],
+                            axis=1,
+                        )
 
                         merged["valid"] = np.ones((n, 1), dtype=np.uint8)
-                        merged["status"] = np.zeros((n, 1), dtype=np.uint16)
+                        merged["status"] = np.zeros((n, 1), dtype=np.uint8)
+
+                        # quality_score: populate from parquet 'qv' column (Phred-scaled quality value)
+                        if "qv" in table_df.columns:
+                            qv = pd.to_numeric(table_df.loc[finite_loc, "qv"], errors="coerce").to_numpy(dtype=np.float64)
+                            qv = np.nan_to_num(qv, nan=0.0).astype(np.float32, copy=False)
+                            merged["quality_score"] = qv.reshape(-1, 1)
+                        else:
+                            merged["quality_score"] = np.zeros((n, 1), dtype=np.float32)
+
+                        # uuid: encode transcript_id as two uint32 words (low 32 bits, high 32 bits)
+                        # This mirrors the original zarr schema where each transcript has a unique 64-bit uuid.
+                        if "transcript_id" in table_df.columns:
+                            tid64 = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
+                            tid64 = np.nan_to_num(tid64, nan=0.0).astype(np.int64, copy=False)
+                            uuid_lo = (tid64 & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
+                            uuid_hi = ((tid64 >> np.int64(32)) & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
+                            merged["uuid"] = np.stack([uuid_lo, uuid_hi], axis=1)
+                        else:
+                            merged["uuid"] = np.zeros((n, 2), dtype=np.uint32)
 
                         # Template metadata from first tile arrays
                         template_meta: dict[str, dict] = {}
@@ -1038,6 +1128,23 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         merged = {name: np.concatenate(parts, axis=0) for name, parts in level_arrays.items()}
                         return merged, array_meta
 
+                    def _subsample_level_arrays(level_arrays: dict[str, np.ndarray], target_count: int) -> dict[str, np.ndarray]:
+                        """Deterministically subsample all arrays to a shared row count."""
+                        row_count = int(level_arrays["location"].shape[0])
+                        if target_count >= row_count:
+                            return level_arrays
+                        if target_count <= 0:
+                            return {name: arr[:0, ...] for name, arr in level_arrays.items()}
+
+                        # Use evenly spaced rows for deterministic multiscale downsampling.
+                        step = float(row_count) / float(target_count)
+                        sample_idx = np.floor(np.arange(target_count, dtype=np.float64) * step).astype(np.int64)
+                        sample_idx = np.clip(sample_idx, 0, row_count - 1)
+                        return {
+                            name: arr[sample_idx, ...]
+                            for name, arr in level_arrays.items()
+                        }
+
                     base_level_name = "0" if "0" in grids_group else str(level_names[0])
                     merged_base = None
                     array_meta_base = None
@@ -1081,10 +1188,18 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     for arr_name in list(merged_base.keys()):
                         merged_base[arr_name] = merged_base[arr_name][finite_mask, ...]
 
+                    level_source = merged_base
                     for level_idx, level_name in enumerate(level_names):
+                        if level_idx > 0:
+                            prev_count = int(level_source["location"].shape[0])
+                            next_count = int(math.floor(prev_count * 0.25))
+                            if next_count < 5000:
+                                break
+                            level_source = _subsample_level_arrays(level_source, next_count)
+
                         tile_size = _tile_size_for_level(str(level_name), level_idx)
-                        gx = np.floor(merged_base["location"][:, 0] / tile_size).astype(np.int64, copy=False)
-                        gy = np.floor(merged_base["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+                        gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
+                        gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
 
                         coords = np.stack([gx, gy], axis=1)
                         uniq_coords, inverse = np.unique(coords, axis=0, return_inverse=True)
@@ -1098,7 +1213,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             tile_key = f"{int(tx)},{int(ty)}"
                             tile_arrays = {
                                 name: arr[row_mask, ...]
-                                for name, arr in merged_base.items()
+                                for name, arr in level_source.items()
                             }
                             level_tiles.append((tile_key, tile_arrays, array_meta_base))
                             level_keys.append(tile_key)
@@ -1308,18 +1423,59 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                 _copy_group(src_root, dst_root)
                 if rebase_region is not None:
                     try:
-                        coord_space = str(dst_root.attrs.get("coordinate_space", ""))
-                        if coord_space:
-                            if "global" in coord_space:
-                                dst_root.attrs["coordinate_space"] = coord_space.replace("global", "local")
-                            elif "local" not in coord_space:
-                                dst_root.attrs["coordinate_space"] = f"{coord_space}_local"
-                        else:
-                            dst_root.attrs["coordinate_space"] = "region_local_micron"
+                        # Keep coordinate_space unchanged from source metadata.
+                        # Rebased coordinates are still written in micron units.
                         dst_root.attrs["spatial_units"] = "micron"
                     except Exception:
                         logger.debug("Failed to update coordinate space metadata after rebasing", exc_info=True)
                 _rebuild_transcript_grids_and_density(dst_root)
+
+                # Ensure output .zarray metadata schema matches source key presence.
+                # In particular, avoid introducing "dimension_separator" where source omitted it.
+                for out_zarray_path in Path(tmpdir_out).rglob(".zarray"):
+                    try:
+                        rel = out_zarray_path.relative_to(Path(tmpdir_out)).as_posix()
+                        payload = json.loads(out_zarray_path.read_text(encoding="utf-8"))
+                        has_dim_sep_in_source = source_zarray_has_dim_sep.get(rel)
+                        should_strip_dim_sep = (
+                            (has_dim_sep_in_source is False)
+                            or (has_dim_sep_in_source is None and not source_uses_dim_sep)
+                        )
+                        if should_strip_dim_sep and ("dimension_separator" in payload):
+                            payload.pop("dimension_separator", None)
+                            out_zarray_path.write_text(json.dumps(payload, indent=4), encoding="utf-8")
+                    except Exception:
+                        logger.debug("Failed to normalize .zarray schema for %s", out_zarray_path, exc_info=True)
+
+                # Keep category arrays byte-for-byte from source.
+                # Some viewers are sensitive to missing implicit chunks (e.g. 0.5),
+                # so copy these trees verbatim to preserve exact chunk members.
+                try:
+                    for category_dir in ("codeword_category", "gene_category"):
+                        src_cat = Path(tmpdir_in) / category_dir
+                        dst_cat = Path(tmpdir_out) / category_dir
+                        if src_cat.exists() and src_cat.is_dir():
+                            if dst_cat.exists():
+                                shutil.rmtree(dst_cat)
+                            shutil.copytree(src_cat, dst_cat)
+                except Exception:
+                    logger.debug("Failed to restore category arrays verbatim from source", exc_info=True)
+
+                # Clean up per-level .zattrs files that zarr creates but original doesn't have.
+                # Original structure has only grids/.zattrs at root; level-specific .zattrs
+                # (grids/0/.zattrs, grids/1/.zattrs, etc.) confuse the viewer.
+                try:
+                    grids_dir = Path(tmpdir_out) / "grids"
+                    if grids_dir.exists():
+                        for level_dir in grids_dir.iterdir():
+                            if level_dir.is_dir() and level_dir.name.isdigit():
+                                level_zattrs = level_dir / ".zattrs"
+                                if level_zattrs.exists():
+                                    level_zattrs.unlink()
+                except Exception:
+                    logger.debug("Failed to clean up per-level .zattrs files", exc_info=True)
+
+
                 _rezip_zarr(Path(tmpdir_out), output_path)
                 logger.debug(
                     "[filter_zarr_zip_preserve_schema] SUCCESS: output=%s size=%dB",
@@ -1723,8 +1879,18 @@ def _rezip_zarr(src_path: Path, dst_path: Path) -> None:
     """
     with zipfile.ZipFile(dst_path, "w", zipfile.ZIP_STORED) as zf:
         for fpath in src_path.rglob("*"):
-            if fpath.is_file():
-                zf.write(fpath, arcname=fpath.relative_to(src_path))
+            if not fpath.is_file():
+                continue
+
+            rel = fpath.relative_to(src_path).as_posix()
+            # Keep archive parity with Xenium source: per-level grids/<n>/.zattrs
+            # are not present in source transcripts archives and can break viewers.
+            if rel.startswith("grids/") and rel.endswith("/.zattrs"):
+                parts = rel.split("/")
+                if len(parts) == 3 and parts[1].isdigit():
+                    continue
+
+            zf.write(fpath, arcname=rel)
 
 
 def _open_zarr_zip_store(path: Path, mode: str = "w"):
