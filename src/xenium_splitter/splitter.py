@@ -54,6 +54,36 @@ from xenium_splitter.recalculate_diffexp import recalculate_diffexp_for_region
 logger = logging.getLogger(__name__)
 
 
+def _drop_negative_rebased_transcripts(
+    subset: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    region_id: str,
+) -> pd.DataFrame:
+    """Remove transcript rows with negative rebased coordinates.
+
+    Rebasing can produce a small number of slightly negative values near crop
+    boundaries. Xenium transcript outputs should not contain negative x/y.
+    """
+    if subset.empty:
+        return subset
+
+    x_vals = pd.to_numeric(subset[x_col], errors="coerce")
+    y_vals = pd.to_numeric(subset[y_col], errors="coerce")
+    keep_mask = (x_vals >= 0) & (y_vals >= 0)
+
+    dropped = int((~keep_mask).sum())
+    if dropped > 0:
+        logger.debug(
+            "Dropped %d transcripts with negative rebased coordinates for region %s",
+            dropped,
+            region_id,
+        )
+        return subset.loc[keep_mask].copy()
+
+    return subset
+
+
 def _always_skip_rule_for_path(relative_path: Path) -> str | None:
     parts_lower = {part.lower() for part in relative_path.parts}
     if "aux_outputs" in parts_lower:
@@ -694,6 +724,14 @@ def _split_file_group(
         else:
             subset = table.iloc[0:0].copy()
 
+        if entity_type == "transcripts" and xy_cols:
+            subset = _drop_negative_rebased_transcripts(
+                subset,
+                xy_cols[0],
+                xy_cols[1],
+                region.region_id,
+            )
+
         per_region_subsets[region.region_id] = subset
         rows_by_region[region.region_id] = len(subset)
         logger.debug(
@@ -1130,6 +1168,15 @@ def _split_tabular_by_coordinates(
             subset = optimized_subsets[region.region_id]
         else:
             subset = subset_table_for_region(table, region, x_col, y_col, pixel_size_um=config.pixel_size_um)
+
+        if entity_type == "transcripts":
+            subset = _drop_negative_rebased_transcripts(
+                subset,
+                x_col,
+                y_col,
+                region.region_id,
+            )
+
         rows_by_region[region.region_id] = len(subset)
         rows_written_total += len(subset)
 

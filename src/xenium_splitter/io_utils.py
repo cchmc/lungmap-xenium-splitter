@@ -861,13 +861,38 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                     grids_group = dst_root["grids"]
                     old_grid_attrs = dict(grids_group.attrs)
-                    level_names = sorted(list(grids_group.keys()), key=lambda s: int(str(s)) if str(s).isdigit() else str(s))
-                    if not level_names:
+                    existing_level_names = sorted(list(grids_group.keys()), key=lambda s: int(str(s)) if str(s).isdigit() else str(s))
+                    if not existing_level_names:
                         return
+
+                    source_grid_attrs = dict(old_grid_attrs)
+                    source_level_names = list(existing_level_names)
+                    try:
+                        if "grids" in src_root:
+                            src_grids_group = src_root["grids"]
+                            source_grid_attrs = dict(src_grids_group.attrs)
+                            source_level_names = sorted(
+                                list(src_grids_group.keys()),
+                                key=lambda s: int(str(s)) if str(s).isdigit() else str(s),
+                            )
+                    except Exception:
+                        source_grid_attrs = dict(old_grid_attrs)
+                        source_level_names = list(existing_level_names)
+
+                    # Keep output pyramid depth aligned with the input store.
+                    level_names = source_level_names if source_level_names else existing_level_names
+                    try:
+                        src_level_count = int(source_grid_attrs.get("number_levels", len(level_names)))
+                        if src_level_count > 0:
+                            canonical_levels = [str(i) for i in range(src_level_count)]
+                            if all(name in level_names for name in canonical_levels):
+                                level_names = canonical_levels
+                    except Exception:
+                        level_names = source_level_names if source_level_names else existing_level_names
 
                     base_grid_size = 250.0
                     try:
-                        gs = old_grid_attrs.get("grid_size", [250.0])
+                        gs = source_grid_attrs.get("grid_size", [250.0])
                         if isinstance(gs, (list, tuple)) and len(gs) > 0:
                             base_grid_size = float(gs[0])
                     except Exception:
@@ -885,7 +910,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         when available; otherwise fall back to the legacy base*2^level behavior.
                         """
                         try:
-                            gs = old_grid_attrs.get("grid_size", [base_grid_size])
+                            gs = source_grid_attrs.get("grid_size", [base_grid_size])
                             if isinstance(gs, (list, tuple)) and len(gs) > 0:
                                 if len(gs) >= len(level_names):
                                     return float(gs[level_index])
@@ -1010,7 +1035,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             for i, gi in enumerate(gene_idx.astype(np.int64, copy=False)):
                                 codeword_identity[i] = np.uint16(first_by_gene.get(int(gi), 0))
                         merged["codeword_identity"] = np.stack(
-                            [codeword_identity, np.zeros(n, dtype=np.uint16)],
+                            [codeword_identity, np.full(n, np.iinfo(np.uint16).max, dtype=np.uint16)],
                             axis=1,
                         )
 
@@ -1192,14 +1217,19 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     for level_idx, level_name in enumerate(level_names):
                         if level_idx > 0:
                             prev_count = int(level_source["location"].shape[0])
-                            next_count = int(math.floor(prev_count * 0.25))
-                            if next_count < 5000:
-                                break
+                            # Preserve full pyramid depth from input metadata.
+                            # Keep coarsening each level, but never stop early.
+                            next_count = max(1, int(math.floor(prev_count * 0.25)))
                             level_source = _subsample_level_arrays(level_source, next_count)
 
                         tile_size = _tile_size_for_level(str(level_name), level_idx)
                         gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
                         gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+                        # Some transcripts can have slightly negative rebased coordinates.
+                        # Keep coordinates unchanged, but pin grid tile indices to non-negative
+                        # to match Xenium-style tile key conventions and avoid negative keys.
+                        gx = np.maximum(gx, 0)
+                        gy = np.maximum(gy, 0)
 
                         coords = np.stack([gx, gy], axis=1)
                         uniq_coords, inverse = np.unique(coords, axis=0, return_inverse=True)
@@ -1263,7 +1293,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     dst_arr.attrs[ak] = av
 
                     # Recompute grids attrs
-                    new_grid_attrs = dict(old_grid_attrs)
+                    new_grid_attrs = dict(source_grid_attrs)
                     new_grid_attrs["number_levels"] = len(rebuilt_levels)
                     new_grid_attrs["grid_keys"] = grid_keys_by_level
                     new_grid_attrs["grid_number_objects"] = grid_counts_by_level
