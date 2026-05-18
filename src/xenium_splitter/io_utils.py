@@ -30,7 +30,7 @@ def _suppress_zipstore_duplicate_name_warning() -> None:
     """Suppress harmless zipfile duplicate-name warnings from ZipStore metadata rewrites."""
     warnings.filterwarnings(
         "ignore",
-        message=r"Duplicate name: '.*zarr\\.json'",
+        message=r"Duplicate name: '.*'",
         category=UserWarning,
         module=r"zipfile",
     )
@@ -682,40 +682,52 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
     )
 
     with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="zarr_schema_in_") as tmpdir_in:
-        with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="zarr_schema_out_") as tmpdir_out:
-            try:
-                with zipfile.ZipFile(zarr_zip_path, "r") as zf:
-                    zf.extractall(tmpdir_in)
+        tmp_output_zip: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=output_path.parent,
+                prefix="zarr_schema_out_",
+                suffix=".zip",
+                delete=False,
+            ) as tmpf:
+                tmp_output_zip = Path(tmpf.name)
 
-                # Capture source .zarray schema key presence so output can match it.
-                source_zarray_has_dim_sep: dict[str, bool] = {}
-                for zarray_path in Path(tmpdir_in).rglob(".zarray"):
-                    try:
-                        rel = zarray_path.relative_to(Path(tmpdir_in)).as_posix()
-                        payload = json.loads(zarray_path.read_text(encoding="utf-8"))
-                        source_zarray_has_dim_sep[rel] = "dimension_separator" in payload
-                    except Exception:
-                        continue
-                source_uses_dim_sep = any(source_zarray_has_dim_sep.values())
+            with zipfile.ZipFile(zarr_zip_path, "r") as zf:
+                zf.extractall(tmpdir_in)
 
-                src_root = zarr.open_group(tmpdir_in, mode="r")
-
-                # Force zarr v2 format for Xenium Explorer compatibility
-                zarr_format = 2
-                if not (Path(tmpdir_in) / ".zgroup").exists():
-                    # Source is v3, but we still output v2 for compatibility
-                    zarr_format = 2
-
-                logger.debug(
-                    "[filter_zarr_zip_preserve_schema] detected zarr_format=%d, forcing output to v2",
-                    zarr_format,
-                )
-
+            # Capture source .zarray schema key presence so output can match it.
+            source_zarray_has_dim_sep: dict[str, bool] = {}
+            for zarray_path in Path(tmpdir_in).rglob(".zarray"):
                 try:
-                    dst_root = zarr.open_group(tmpdir_out, mode="w", zarr_format=2)
+                    rel = zarray_path.relative_to(Path(tmpdir_in)).as_posix()
+                    payload = json.loads(zarray_path.read_text(encoding="utf-8"))
+                    source_zarray_has_dim_sep[rel] = "dimension_separator" in payload
+                except Exception:
+                    continue
+            source_uses_dim_sep = any(source_zarray_has_dim_sep.values())
+
+            src_root = zarr.open_group(tmpdir_in, mode="r")
+
+            # Force zarr v2 format for Xenium Explorer compatibility
+            zarr_format = 2
+            if not (Path(tmpdir_in) / ".zgroup").exists():
+                # Source is v3, but we still output v2 for compatibility
+                zarr_format = 2
+
+            logger.debug(
+                "[filter_zarr_zip_preserve_schema] detected zarr_format=%d, forcing output to v2",
+                zarr_format,
+            )
+
+            dst_store = None
+            with warnings.catch_warnings():
+                _suppress_zipstore_duplicate_name_warning()
+                dst_store = _open_zarr_zip_store(tmp_output_zip, mode="w")
+                try:
+                    dst_root = zarr.open_group(dst_store, mode="w", zarr_format=2)
                 except TypeError:
                     # Older zarr versions don't support zarr_format parameter
-                    dst_root = zarr.open_group(tmpdir_out, mode="w")
+                    dst_root = zarr.open_group(dst_store, mode="w")
                     logger.warning("zarr_format parameter not supported; using default format")
 
                 def _rebase_known_arrays(path_key: str, data_arr, node_attrs: dict):
@@ -824,14 +836,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             id_node = src_group["id"]
                             if hasattr(id_node, "shape") and getattr(id_node, "ndim", 0) == 2 and id_node.shape[1] >= 1:
                                 group_row_mask = _build_transcript_group_mask(id_node[:])
-                                # DEBUG: Log mask statistics
-                                if group_row_mask is not None:
-                                    n_kept = np.sum(group_row_mask)
-                                    logger.debug(
-                                        "[_copy_group] path=%s mask_shape=%s n_kept=%d/%d (%.1f%%)",
-                                        path_prefix, group_row_mask.shape, n_kept, group_row_mask.shape[0],
-                                        100.0 * n_kept / group_row_mask.shape[0] if group_row_mask.shape[0] > 0 else 0,
-                                    )
                         except Exception as e:
                             logger.debug("[_copy_group] Exception building mask: %s", e)
                             group_row_mask = None
@@ -1182,12 +1186,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                             row_count = int(location.shape[0])
                             
-                            # Capture original grid coordinates from tile name (e.g., "0,10")
-                            # to preserve grid positioning after coordinate rebasing
-                            tx_orig, ty_orig = tuple(map(int, tile_name.split(',')))
-                            level_arrays.setdefault("_orig_grid_tx", []).append(np.full(row_count, tx_orig, dtype=np.int64))
-                            level_arrays.setdefault("_orig_grid_ty", []).append(np.full(row_count, ty_orig, dtype=np.int64))
-                            
                             tile_mask = None
                             if transcript_ids is not None:
                                 if "id" not in tile_group:
@@ -1214,10 +1212,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     arr_data = arr_data[tile_mask, ...]
                                     if arr_data.shape[0] == 0:
                                         continue
-                                    # Also apply mask to original grid coordinates
-                                    if arr_name == "location":  # Apply once when processing location
-                                        level_arrays["_orig_grid_tx"][-1] = level_arrays["_orig_grid_tx"][-1][tile_mask]
-                                        level_arrays["_orig_grid_ty"][-1] = level_arrays["_orig_grid_ty"][-1][tile_mask]
 
                                 level_arrays.setdefault(arr_name, []).append(arr_data)
                                 if arr_name not in array_meta:
@@ -1308,8 +1302,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 
                                 # Only compact if indices are not already 0-based consecutive
                                 if used_fov.size > 0 and (used_fov[0] != 0 or used_fov[-1] != used_fov.size - 1):
-                                    print(f"[FOV compact] Compacting FOV indices from {sorted(used_fov.tolist())} to [0..{used_fov.size-1}]")
-                                    
                                     # Build lookup table
                                     max_old_fov = int(used_fov[-1])
                                     fov_lut = np.full(max_old_fov + 1, -1, dtype=np.int64)
@@ -1335,11 +1327,8 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                             else:
                                                 new_fov_names.append(str(int(old_i)))
                                         dst_root.attrs["fov_names"] = new_fov_names
-                                        print(f"[FOV compact] Updated fov_names from {len(raw_fov_names)} to {len(new_fov_names)} entries")
-                        except Exception as e:
-                            print(f"[FOV compact] Pre-tiling FOV compaction failed: {e}")
-                            import traceback
-                            traceback.print_exc()
+                        except Exception:
+                            logger.debug("Pre-tiling FOV compaction failed", exc_info=True)
 
                     level_source = merged_base
                     for level_idx, level_name in enumerate(level_names):
@@ -1351,19 +1340,9 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             level_source = _subsample_level_arrays(level_source, next_count)
 
                         tile_size = _tile_size_for_level(str(level_name), level_idx)
-                        
-                        # Use original grid coordinates preserved from source tiles
-                        # instead of computing from rebased coordinates
-                        if "_orig_grid_tx" in level_source and "_orig_grid_ty" in level_source:
-                            # Use preserved original grid coordinates
-                            gx = level_source["_orig_grid_tx"].astype(np.int64, copy=False)
-                            gy = level_source["_orig_grid_ty"].astype(np.int64, copy=False)
-                            print(f"[GRID COORDS] Level {level_name}: Using original grid coordinates, range x=[{gx.min()}-{gx.max()}] y=[{gy.min()}-{gy.max()}]")
-                        else:
-                            # Fallback: compute from rebased coordinates (should not happen after fix)
-                            gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
-                            gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
-                            print(f"[GRID COORDS] Level {level_name}: FALLBACK - computing from rebased coords, range x=[{gx.min()}-{gx.max()}] y=[{gy.min()}-{gy.max()}]")
+                        # Compute tile coordinates from rebased locations at every level.
+                        gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
+                        gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
                         
                         # Some transcripts can have slightly negative rebased coordinates.
                         # Keep coordinates unchanged, but pin grid tile indices to non-negative
@@ -1609,71 +1588,49 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         dst_root.attrs["spatial_units"] = "micron"
                     except Exception:
                         logger.debug("Failed to update coordinate space metadata after rebasing", exc_info=True)
-                # Never rebuild transcript grids. The _copy_group pass already filters
-                # rows within each existing tile via transcript_ids. Rebuilding would
-                # re-tile from coordinates (rebased or global) and corrupt the grid
-                # tile keys that Xenium Explorer relies on for spatial lookup.
-
-                # Ensure output .zarray metadata schema matches source key presence.
-                # In particular, avoid introducing "dimension_separator" where source omitted it.
-                for out_zarray_path in Path(tmpdir_out).rglob(".zarray"):
-                    try:
-                        rel = out_zarray_path.relative_to(Path(tmpdir_out)).as_posix()
-                        payload = json.loads(out_zarray_path.read_text(encoding="utf-8"))
-                        has_dim_sep_in_source = source_zarray_has_dim_sep.get(rel)
-                        should_strip_dim_sep = (
-                            (has_dim_sep_in_source is False)
-                            or (has_dim_sep_in_source is None and not source_uses_dim_sep)
+                # Rebuild transcript grids after filtering so tile keys and density
+                # align with the written transcript coordinates at every level.
+                if transcript_table is not None or transcript_ids is not None:
+                    store_type_name = type(getattr(dst_root, "store", None)).__name__.lower()
+                    if "zipstore" in store_type_name:
+                        logger.debug(
+                            "Skipping transcript grids/density rebuild on ZipStore output to avoid unsupported delete operations."
                         )
-                        if should_strip_dim_sep and ("dimension_separator" in payload):
-                            payload.pop("dimension_separator", None)
-                            out_zarray_path.write_text(json.dumps(payload, indent=4), encoding="utf-8")
-                    except Exception:
-                        logger.debug("Failed to normalize .zarray schema for %s", out_zarray_path, exc_info=True)
+                    else:
+                        try:
+                            _rebuild_transcript_grids_and_density(dst_root)
+                        except Exception:
+                            logger.debug("Failed to rebuild transcript grids and density", exc_info=True)
 
-                # Keep category arrays byte-for-byte from source.
-                # Some viewers are sensitive to missing implicit chunks (e.g. 0.5),
-                # so copy these trees verbatim to preserve exact chunk members.
+            if dst_store is not None:
                 try:
-                    for category_dir in ("codeword_category", "gene_category"):
-                        src_cat = Path(tmpdir_in) / category_dir
-                        dst_cat = Path(tmpdir_out) / category_dir
-                        if src_cat.exists() and src_cat.is_dir():
-                            if dst_cat.exists():
-                                shutil.rmtree(dst_cat)
-                            shutil.copytree(src_cat, dst_cat)
+                    dst_store.close()
                 except Exception:
-                    logger.debug("Failed to restore category arrays verbatim from source", exc_info=True)
+                    logger.debug("Failed to close destination zarr ZipStore", exc_info=True)
 
-                # Clean up per-level .zattrs files that zarr creates but original doesn't have.
-                # Original structure has only grids/.zattrs at root; level-specific .zattrs
-                # (grids/0/.zattrs, grids/1/.zattrs, etc.) confuse the viewer.
+            if output_path.exists():
+                output_path.unlink()
+            shutil.move(str(tmp_output_zip), str(output_path))
+            tmp_output_zip = None
+            logger.debug(
+                "[filter_zarr_zip_preserve_schema] SUCCESS: output=%s size=%dB",
+                output_path.name,
+                output_path.stat().st_size if output_path.exists() else 0,
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed schema-preserving zarr filter for %s: %s",
+                zarr_zip_path.name,
+                e,
+            )
+            return False
+        finally:
+            if tmp_output_zip is not None and tmp_output_zip.exists():
                 try:
-                    grids_dir = Path(tmpdir_out) / "grids"
-                    if grids_dir.exists():
-                        for level_dir in grids_dir.iterdir():
-                            if level_dir.is_dir() and level_dir.name.isdigit():
-                                level_zattrs = level_dir / ".zattrs"
-                                if level_zattrs.exists():
-                                    level_zattrs.unlink()
+                    tmp_output_zip.unlink()
                 except Exception:
-                    logger.debug("Failed to clean up per-level .zattrs files", exc_info=True)
-
-
-                _rezip_zarr(Path(tmpdir_out), output_path)
-                logger.debug(
-                    "[filter_zarr_zip_preserve_schema] SUCCESS: output=%s size=%dB",
-                    output_path.name,
-                    output_path.stat().st_size if output_path.exists() else 0,
-                )
-                return True
-            except Exception as e:
-                logger.error(
-                    "Failed schema-preserving zarr filter for %s: %s",
-                    zarr_zip_path.name,
-                    e,
-                )
-                return False
+                    logger.debug("Failed to clean up temporary output zip %s", tmp_output_zip, exc_info=True)
 
 
 def find_boundary_files(input_dir: Path) -> dict[str, Path]:

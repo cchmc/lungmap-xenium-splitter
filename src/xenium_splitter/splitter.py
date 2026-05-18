@@ -820,11 +820,8 @@ def _split_file_group(
                     if file_name_lower == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
                         transcript_id_values = subset["transcript_id"].to_numpy()
 
-                    # transcripts.zarr.zip: filter by region but keep global coordinates unchanged.
-                    # cells.zarr.zip and others: rebase as before.
-                    if file_name_lower == "transcripts.zarr.zip":
-                        _rebase_region_for_zarr = None
-                    elif xy_cols is not None or file_name_lower == "cells.zarr.zip":
+                    # Rebase coordinate-bearing zarr outputs to the crop origin.
+                    if xy_cols is not None or file_name_lower in {"cells.zarr.zip", "transcripts.zarr.zip"}:
                         _rebase_region_for_zarr = region
                     else:
                         _rebase_region_for_zarr = None
@@ -1684,11 +1681,8 @@ def _split_zarr(
         if lower_name == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
             transcript_id_values = subset["transcript_id"].to_numpy()
 
-        # transcripts.zarr.zip: filter by region but keep global coordinates unchanged.
-        # cells.zarr.zip: rebase coordinates to crop origin as before.
-        if lower_name == "transcripts.zarr.zip":
-            rebase_region = None
-        elif lower_name == "cells.zarr.zip":
+        # Rebase coordinate-bearing zarr outputs to the crop origin.
+        if lower_name in {"cells.zarr.zip", "transcripts.zarr.zip"}:
             rebase_region = region
         else:
             rebase_region = None
@@ -2419,13 +2413,18 @@ def _split_cell_feature_matrix_bundle(
                 )
             )
         else:
+            skip_detail = (
+                "Handled by bundled cell_feature_matrix workflow (standalone H5 not emitted)"
+                if any_dir_processed
+                else "No boundary-derived cell IDs available"
+            )
             metrics.files_skipped += 1
             metrics.file_metrics.append(
                 FileMetric(
                     source_path=str(relative_h5),
                     file_type="hdf5",
                     status="skipped",
-                    detail="No boundary-derived cell IDs available",
+                    detail=skip_detail,
                     rows_written_total=0,
                     rows_written_by_region=h5_rows_by_region,
                 )
