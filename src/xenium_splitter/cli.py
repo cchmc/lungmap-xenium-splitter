@@ -76,6 +76,11 @@ def split_command(
         "--write-cell-feature-matrix-zarr/--skip-cell-feature-matrix-zarr",
         help="Write cell_feature_matrix.zarr.zip outputs (disable to benchmark runtime impact).",
     ),
+    copy_transcripts: bool = typer.Option(
+        False,
+        "--copy-transcripts",
+        help="Copy transcript files verbatim to each region output with no filtering or rebasing.",
+    ),
     verbose: bool = typer.Option(
         False,
         "-v",
@@ -96,6 +101,7 @@ def split_command(
         skip_images=skip_images,
         recalculate_diffexp=recalculate_diffexp,
         write_cell_feature_matrix_zarr=write_cell_feature_matrix_zarr,
+        copy_transcripts=copy_transcripts,
     )
     metrics, metadata_path = run_split(config)
     typer.echo("Split complete.")

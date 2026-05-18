@@ -43,6 +43,23 @@ def _xenium_temp_root() -> Path:
     return root
 
 
+def _zarr_create_dataset(zarr_mod, group, name, **kwargs):
+    """Create a zarr dataset with write_empty_chunks=True regardless of zarr version.
+
+    - zarr v2: pass write_empty_chunks=True as a kwarg to create_dataset.
+    - zarr v3: zarr.config is available; use it as a context manager instead
+      (the kwarg is silently ignored in v3).
+    """
+    if hasattr(zarr_mod, "config"):
+        # zarr v3
+        with zarr_mod.config.set({"array.write_empty_chunks": True}):
+            return group.create_dataset(name, **kwargs)
+    else:
+        # zarr v2
+        kwargs["write_empty_chunks"] = True
+        return group.create_dataset(name, **kwargs)
+
+
 def iter_input_files(input_dir: Path) -> list[Path]:
     """Recursively list all files in input_dir, excluding metadata files that are
     handled separately or are summary/artifact files."""
@@ -618,15 +635,42 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
     indices = np.asarray(row_indices, dtype=np.int64)
     transcript_ids = None
     transcript_ids_sorted = None
+    transcript_id_mode: dict[str, str | None] = {"kind": None}
     if transcript_id_values is not None:
         try:
             transcript_ids = np.asarray(list(transcript_id_values), dtype=np.int64)
             transcript_ids = transcript_ids[np.isfinite(transcript_ids)] if transcript_ids.size else transcript_ids
             transcript_ids = np.unique(transcript_ids.astype(np.int64, copy=False))
             transcript_ids_sorted = transcript_ids
+
+            # Infer the transcript ID encoding once so matching is strict.
+            one_shift_48 = (np.int64(1) << np.int64(48))
+            two_shift_32 = (np.int64(1) << np.int64(32))
+            if transcript_ids_sorted.size > 0:
+                min_id = int(transcript_ids_sorted[0])
+                max_id = int(transcript_ids_sorted[-1])
+                if min_id >= int(one_shift_48):
+                    shifted = transcript_ids_sorted - one_shift_48
+                    if np.all((shifted >= 0) & (shifted < two_shift_32)):
+                        transcript_id_mode["kind"] = "low_plus_2pow48"
+                    else:
+                        transcript_id_mode["kind"] = "hi_and_low_plus_2pow48"
+                elif min_id >= 0 and max_id < int(two_shift_32):
+                    transcript_id_mode["kind"] = "low"
+                else:
+                    transcript_id_mode["kind"] = "pair_u32"
+
+                logger.debug(
+                    "[filter_zarr_zip_preserve_schema] transcript_id_mode=%s ids=%d min=%d max=%d",
+                    transcript_id_mode["kind"],
+                    int(transcript_ids_sorted.size),
+                    min_id,
+                    max_id,
+                )
         except Exception:
             transcript_ids = None
             transcript_ids_sorted = None
+            transcript_id_mode["kind"] = None
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
     
     logger.debug(
@@ -728,8 +772,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                     return data_arr
 
-                transcript_id_mode = {"kind": None}
-
                 def _build_transcript_group_mask(id_arr) -> np.ndarray | None:
                     if transcript_ids is None:
                         return None
@@ -738,44 +780,32 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                     low = id_arr[:, 0].astype(np.int64, copy=False)
                     one_shift_48 = (np.int64(1) << np.int64(48))
+                    hi = id_arr[:, 1].astype(np.int64, copy=False) if id_arr.shape[1] > 1 else np.zeros_like(low)
 
                     def _mode_values(kind: str) -> np.ndarray:
+                        if kind == "hi_and_low_plus_2pow48":
+                            # Correct Xenium encoding: 2^48 + (fov << 32) + local_index
+                            # hi encodes the FOV number; low encodes the per-FOV transcript index.
+                            return one_shift_48 + (hi << np.int64(32)) + low
                         if kind == "low_plus_2pow48":
                             return low + one_shift_48
                         if kind == "low":
                             return low
                         if kind == "pair_u32":
-                            hi = id_arr[:, 1].astype(np.int64, copy=False) if id_arr.shape[1] > 1 else np.zeros_like(low)
                             return (hi << np.int64(32)) + low
                         return low
 
-                    candidates = ["low_plus_2pow48", "low", "pair_u32"]
-                    hits_by_kind: dict[str, int] = {}
-                    vals_by_kind: dict[str, np.ndarray] = {}
-                    for cand in candidates:
-                        cand_vals = _mode_values(cand)
-                        vals_by_kind[cand] = cand_vals
-                        if transcript_ids_sorted is None or transcript_ids_sorted.size == 0:
-                            hits_by_kind[cand] = 0
-                        else:
-                            pos = np.searchsorted(transcript_ids_sorted, cand_vals)
-                            in_bounds = (pos >= 0) & (pos < transcript_ids_sorted.size)
-                            hits_by_kind[cand] = int(np.sum(transcript_ids_sorted[pos[in_bounds]] == cand_vals[in_bounds])) if np.any(in_bounds) else 0
-
-                    best_kind = max(candidates, key=lambda k: hits_by_kind.get(k, 0))
-                    current_kind = transcript_id_mode["kind"]
-                    current_hits = hits_by_kind.get(current_kind, 0) if current_kind is not None else -1
-                    best_hits = hits_by_kind.get(best_kind, 0)
-                    if current_kind is None or (best_hits > current_hits and best_hits > 0):
-                        transcript_id_mode["kind"] = best_kind
-
-                    kind = transcript_id_mode["kind"] or best_kind
-                    vals = vals_by_kind.get(kind, _mode_values(kind))
                     if transcript_ids_sorted is None or transcript_ids_sorted.size == 0:
-                        return np.zeros(vals.shape[0], dtype=bool)
+                        return np.zeros(low.shape[0], dtype=bool)
+
+                    kind = transcript_id_mode.get("kind")
+                    if kind is None:
+                        kind = "hi_and_low_plus_2pow48"
+
+                    vals = _mode_values(kind)
                     pos = np.searchsorted(transcript_ids_sorted, vals)
                     in_bounds = (pos >= 0) & (pos < transcript_ids_sorted.size)
-                    out = np.zeros(vals.shape[0], dtype=bool)
+                    out = np.zeros(low.shape[0], dtype=bool)
                     if np.any(in_bounds):
                         out[in_bounds] = transcript_ids_sorted[pos[in_bounds]] == vals[in_bounds]
                     return out
@@ -789,13 +819,21 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         dst_group.attrs["number_cells"] = len(indices)
 
                     group_row_mask = None
-                    under_grids = path_prefix == "grids" or path_prefix.startswith("grids/")
-                    if transcript_ids is not None and (not under_grids) and "id" in src_group:
+                    if transcript_ids is not None and "id" in src_group:
                         try:
                             id_node = src_group["id"]
                             if hasattr(id_node, "shape") and getattr(id_node, "ndim", 0) == 2 and id_node.shape[1] >= 1:
                                 group_row_mask = _build_transcript_group_mask(id_node[:])
-                        except Exception:
+                                # DEBUG: Log mask statistics
+                                if group_row_mask is not None:
+                                    n_kept = np.sum(group_row_mask)
+                                    logger.debug(
+                                        "[_copy_group] path=%s mask_shape=%s n_kept=%d/%d (%.1f%%)",
+                                        path_prefix, group_row_mask.shape, n_kept, group_row_mask.shape[0],
+                                        100.0 * n_kept / group_row_mask.shape[0] if group_row_mask.shape[0] > 0 else 0,
+                                    )
+                        except Exception as e:
+                            logger.debug("[_copy_group] Exception building mask: %s", e)
                             group_row_mask = None
 
                     for key in src_group.keys():
@@ -810,7 +848,27 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 and data.shape[0] == group_row_mask.shape[0]
                             ):
                                 data = data[group_row_mask, ...]
+                            elif transcript_ids is not None and getattr(node, "ndim", 0) >= 1 and len(data.shape) >= 1:
+                                # Filtering by transcript_id but don't have a mask for this group/tile.
+                                # Check if array spans the full input table; if so, use row indices.
+                                # Otherwise skip (don't copy) since we can't filter it without a mask.
+                                match_axes = [ax for ax, sz in enumerate(node.shape) if int(sz) == int(base_row_count)]
+                                if match_axes:
+                                    data = np.take(data, indices, axis=match_axes[0])
+                                    logger.debug(
+                                        "[_copy_group] path=%s/%s filtered via row_indices (no_mask_spanning_full_table)",
+                                        path_prefix, key,
+                                    )
+                                else:
+                                    # Array doesn't span full input table and we don't have a mask for it.
+                                    # Skip copying this array entirely.
+                                    logger.debug(
+                                        "[_copy_group] path=%s/%s SKIPPED (no_mask_not_spanning_full_table) shape=%s",
+                                        path_prefix, key, node.shape,
+                                    )
+                                    continue
                             elif getattr(node, "ndim", 0) >= 1:
+                                # Not filtering by transcript_id: use row indices as before.
                                 match_axes = [ax for ax, sz in enumerate(node.shape) if int(sz) == int(base_row_count)]
                                 if match_axes:
                                     data = np.take(data, indices, axis=match_axes[0])
@@ -819,7 +877,12 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
                             chunks = getattr(node, "chunks", None)
                             if chunks is not None and isinstance(data.shape, tuple) and len(chunks) == len(data.shape):
-                                chunks = tuple(min(int(c), int(s)) for c, s in zip(chunks, data.shape))
+                                # Keep chunk axes >= 1 even when filtered data has zero rows.
+                                # zarr may raise division-by-zero if any chunk axis is 0.
+                                chunks = tuple(
+                                    max(1, min(int(c), int(s)) if int(s) > 0 else 1)
+                                    for c, s in zip(chunks, data.shape)
+                                )
 
                             create_kwargs = {
                                 "shape": data.shape,
@@ -837,11 +900,11 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 create_kwargs["compressor"] = compressor
 
                             try:
-                                dst_arr = dst_group.create_dataset(key, **create_kwargs)
+                                dst_arr = _zarr_create_dataset(zarr, dst_group, key, **create_kwargs)
                             except TypeError:
                                 create_kwargs.pop("compressors", None)
                                 create_kwargs.pop("compressor", None)
-                                dst_arr = dst_group.create_dataset(key, **create_kwargs)
+                                dst_arr = _zarr_create_dataset(zarr, dst_group, key, **create_kwargs)
 
                             for attr_key, attr_val in dict(node.attrs).items():
                                 dst_arr.attrs[attr_key] = attr_val
@@ -929,6 +992,14 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         y_col = next((c for c in y_candidates if c in df.columns), None)
                         return x_col, y_col
 
+                    def _normalize_fov_name(value) -> str:
+                        if isinstance(value, (bytes, np.bytes_)):
+                            try:
+                                return value.decode("utf-8")
+                            except Exception:
+                                return str(value)
+                        return str(value)
+
                     def _build_from_transcript_table(table_df, template_level_group):
                         if table_df is None or getattr(table_df, "empty", True):
                             return None, None
@@ -989,7 +1060,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             if (not np.all(resolved_mask)) and "fov_name" in table_df.columns:
                                 fov_names = dst_root.attrs.get("fov_names", [])
                                 if isinstance(fov_names, (list, tuple)) and len(fov_names) > 0:
-                                    fov_to_idx = {str(name): i for i, name in enumerate(fov_names)}
+                                    fov_to_idx = {_normalize_fov_name(name): i for i, name in enumerate(fov_names)}
                                     mapped = table_df.loc[finite_loc, "fov_name"].map(fov_to_idx)
                                     mapped_valid = mapped.notna().to_numpy(dtype=bool, copy=False)
                                     mapped_u32 = mapped.fillna(0).astype(np.uint32).to_numpy(copy=False)
@@ -1098,8 +1169,6 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     def _collect_level_arrays(level_group):
                         level_arrays: dict[str, list[np.ndarray]] = {}
                         array_meta: dict[str, dict] = {}
-                        if transcript_ids is not None:
-                            transcript_id_mode["kind"] = None
                         for tile_name in list(level_group.keys()):
                             tile_group = level_group[tile_name]
                             if "location" not in tile_group:
@@ -1112,6 +1181,13 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 continue
 
                             row_count = int(location.shape[0])
+                            
+                            # Capture original grid coordinates from tile name (e.g., "0,10")
+                            # to preserve grid positioning after coordinate rebasing
+                            tx_orig, ty_orig = tuple(map(int, tile_name.split(',')))
+                            level_arrays.setdefault("_orig_grid_tx", []).append(np.full(row_count, tx_orig, dtype=np.int64))
+                            level_arrays.setdefault("_orig_grid_ty", []).append(np.full(row_count, ty_orig, dtype=np.int64))
+                            
                             tile_mask = None
                             if transcript_ids is not None:
                                 if "id" not in tile_group:
@@ -1138,6 +1214,10 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     arr_data = arr_data[tile_mask, ...]
                                     if arr_data.shape[0] == 0:
                                         continue
+                                    # Also apply mask to original grid coordinates
+                                    if arr_name == "location":  # Apply once when processing location
+                                        level_arrays["_orig_grid_tx"][-1] = level_arrays["_orig_grid_tx"][-1][tile_mask]
+                                        level_arrays["_orig_grid_ty"][-1] = level_arrays["_orig_grid_ty"][-1][tile_mask]
 
                                 level_arrays.setdefault(arr_name, []).append(arr_data)
                                 if arr_name not in array_meta:
@@ -1191,6 +1271,9 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 kind = transcript_id_mode.get("kind")
                                 if kind == "low_plus_2pow48":
                                     decoded = low + (np.int64(1) << np.int64(48))
+                                elif kind == "hi_and_low_plus_2pow48" and id_arr.shape[1] > 1:
+                                    hi = id_arr[:, 1].astype(np.int64, copy=False)
+                                    decoded = (np.int64(1) << np.int64(48)) + (hi << np.int64(32)) + low
                                 elif kind == "pair_u32" and id_arr.shape[1] > 1:
                                     hi = id_arr[:, 1].astype(np.int64, copy=False)
                                     decoded = (hi << np.int64(32)) + low
@@ -1213,6 +1296,51 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     for arr_name in list(merged_base.keys()):
                         merged_base[arr_name] = merged_base[arr_name][finite_mask, ...]
 
+                    # Compact FOV indices in id[:,1] to 0-based consecutive before tiling.
+                    if "id" in merged_base:
+                        try:
+                            id_arr = merged_base.get("id")
+                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[1] > 1:
+                                # Collect unique FOV indices
+                                fov_old = id_arr[:, 1].astype(np.int64, copy=False)
+                                used_fov = np.unique(fov_old)
+                                used_fov = used_fov[used_fov >= 0]
+                                
+                                # Only compact if indices are not already 0-based consecutive
+                                if used_fov.size > 0 and (used_fov[0] != 0 or used_fov[-1] != used_fov.size - 1):
+                                    print(f"[FOV compact] Compacting FOV indices from {sorted(used_fov.tolist())} to [0..{used_fov.size-1}]")
+                                    
+                                    # Build lookup table
+                                    max_old_fov = int(used_fov[-1])
+                                    fov_lut = np.full(max_old_fov + 1, -1, dtype=np.int64)
+                                    for new_i, old_i in enumerate(used_fov.tolist()):
+                                        fov_lut[int(old_i)] = new_i
+                                    
+                                    # Apply remap to id[:,1]
+                                    clipped = np.clip(fov_old, 0, max_old_fov)
+                                    new_fov = np.where(
+                                        (fov_old >= 0) & (fov_old <= max_old_fov) & (fov_lut[clipped] >= 0),
+                                        fov_lut[clipped],
+                                        fov_old,
+                                    ).astype(np.uint32)
+                                    id_arr[:, 1] = new_fov
+                                    
+                                    # Update fov_names in root attrs to match compacted FOVs
+                                    if "fov_names" in dst_root.attrs:
+                                        raw_fov_names = list(dst_root.attrs["fov_names"])
+                                        new_fov_names = []
+                                        for old_i in used_fov.tolist():
+                                            if 0 <= int(old_i) < len(raw_fov_names):
+                                                new_fov_names.append(str(raw_fov_names[int(old_i)]))
+                                            else:
+                                                new_fov_names.append(str(int(old_i)))
+                                        dst_root.attrs["fov_names"] = new_fov_names
+                                        print(f"[FOV compact] Updated fov_names from {len(raw_fov_names)} to {len(new_fov_names)} entries")
+                        except Exception as e:
+                            print(f"[FOV compact] Pre-tiling FOV compaction failed: {e}")
+                            import traceback
+                            traceback.print_exc()
+
                     level_source = merged_base
                     for level_idx, level_name in enumerate(level_names):
                         if level_idx > 0:
@@ -1223,8 +1351,20 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             level_source = _subsample_level_arrays(level_source, next_count)
 
                         tile_size = _tile_size_for_level(str(level_name), level_idx)
-                        gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
-                        gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+                        
+                        # Use original grid coordinates preserved from source tiles
+                        # instead of computing from rebased coordinates
+                        if "_orig_grid_tx" in level_source and "_orig_grid_ty" in level_source:
+                            # Use preserved original grid coordinates
+                            gx = level_source["_orig_grid_tx"].astype(np.int64, copy=False)
+                            gy = level_source["_orig_grid_ty"].astype(np.int64, copy=False)
+                            print(f"[GRID COORDS] Level {level_name}: Using original grid coordinates, range x=[{gx.min()}-{gx.max()}] y=[{gy.min()}-{gy.max()}]")
+                        else:
+                            # Fallback: compute from rebased coordinates (should not happen after fix)
+                            gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
+                            gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+                            print(f"[GRID COORDS] Level {level_name}: FALLBACK - computing from rebased coords, range x=[{gx.min()}-{gx.max()}] y=[{gy.min()}-{gy.max()}]")
+                        
                         # Some transcripts can have slightly negative rebased coordinates.
                         # Keep coordinates unchanged, but pin grid tile indices to non-negative
                         # to match Xenium-style tile key conventions and avoid negative keys.
@@ -1274,7 +1414,10 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     "data": arr_data,
                                 }
                                 if chunks is not None and len(chunks) == len(arr_data.shape):
-                                    create_kwargs["chunks"] = tuple(min(int(c), int(s)) for c, s in zip(chunks, arr_data.shape))
+                                    create_kwargs["chunks"] = tuple(
+                                        max(1, min(int(c), int(s)) if int(s) > 0 else 1)
+                                        for c, s in zip(chunks, arr_data.shape)
+                                    )
                                 compressors = m.get("compressors")
                                 compressor = m.get("compressor")
                                 if compressors is not None:
@@ -1283,11 +1426,11 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     create_kwargs["compressor"] = compressor
 
                                 try:
-                                    dst_arr = tile_group.create_dataset(arr_name, **create_kwargs)
+                                    dst_arr = _zarr_create_dataset(zarr, tile_group, arr_name, **create_kwargs)
                                 except TypeError:
                                     create_kwargs.pop("compressors", None)
                                     create_kwargs.pop("compressor", None)
-                                    dst_arr = tile_group.create_dataset(arr_name, **create_kwargs)
+                                    dst_arr = _zarr_create_dataset(zarr, tile_group, arr_name, **create_kwargs)
 
                                 for ak, av in m.get("attrs", {}).items():
                                     dst_arr.attrs[ak] = av
@@ -1309,6 +1452,9 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         dst_root.attrs["number_rnas"] = int(level0_total)
                     except Exception:
                         pass
+
+
+                    # FOV compaction now done pre-tiling (see ~line 1225) for better reliability.
 
                     # Recompute density/gene CSR from level 0 locations and gene identities.
                     if "density" in dst_root and "gene" in dst_root["density"] and "0" in new_grids:
@@ -1451,6 +1597,11 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             logger.debug("Failed to rebuild transcript density/gene; keeping copied values", exc_info=True)
 
                 _copy_group(src_root, dst_root)
+                if transcript_ids is not None:
+                    try:
+                        dst_root.attrs["number_rnas"] = int(transcript_ids.size)
+                    except Exception:
+                        logger.debug("Failed to update number_rnas for filtered transcript zarr", exc_info=True)
                 if rebase_region is not None:
                     try:
                         # Keep coordinate_space unchanged from source metadata.
@@ -1458,7 +1609,10 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         dst_root.attrs["spatial_units"] = "micron"
                     except Exception:
                         logger.debug("Failed to update coordinate space metadata after rebasing", exc_info=True)
-                _rebuild_transcript_grids_and_density(dst_root)
+                # Never rebuild transcript grids. The _copy_group pass already filters
+                # rows within each existing tile via transcript_ids. Rebuilding would
+                # re-tile from coordinates (rebased or global) and corrupt the grid
+                # tile keys that Xenium Explorer relies on for spatial lookup.
 
                 # Ensure output .zarray metadata schema matches source key presence.
                 # In particular, avoid introducing "dimension_separator" where source omitted it.

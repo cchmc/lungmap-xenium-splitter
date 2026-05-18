@@ -30,6 +30,7 @@ class SplitConfig:
     skip_images: bool = False
     recalculate_diffexp: bool = True
     write_cell_feature_matrix_zarr: bool = True
+    copy_transcripts: bool = False
 
 
 @dataclass(slots=True)

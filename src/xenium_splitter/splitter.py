@@ -658,6 +658,49 @@ def _split_file_group(
         time.perf_counter() - block_start,
     )
 
+    if config.copy_transcripts and entity_type == "transcripts":
+        # Only intercept the zarr.zip; let CSV/parquet fall through to normal filtering below.
+        zarr_files = [fp for fp in file_paths if fp.name.lower().endswith(".zarr.zip")]
+        non_zarr_files = [fp for fp in file_paths if not fp.name.lower().endswith(".zarr.zip")]
+        for fp in zarr_files:
+            rel = fp.relative_to(config.input_dir)
+            write_start = time.perf_counter()
+            try:
+                for region in regions:
+                    dest = config.output_dir / f"region_{region.region_id}" / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(fp, dest)
+
+                metrics.files_processed += 1
+                metrics.file_metrics.append(
+                    FileMetric(
+                        source_path=str(rel),
+                        file_type="zarr",
+                        status="processed",
+                        detail="Copied verbatim by --copy-transcripts (no filtering/rebasing)",
+                        rows_input=len(table),
+                        rows_written_total=len(table) * len(regions),
+                        rows_written_by_region={r.region_id: len(table) for r in regions},
+                        duration_s=time.perf_counter() - write_start,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                metrics.files_failed += 1
+                metrics.file_metrics.append(
+                    FileMetric(
+                        source_path=str(rel),
+                        file_type="zarr",
+                        status="failed",
+                        detail=str(exc),
+                        duration_s=time.perf_counter() - write_start,
+                    )
+                )
+        if not non_zarr_files:
+            return
+        # Continue with normal filtering for any remaining non-zarr transcript formats.
+        file_paths = non_zarr_files
+
+
     if not id_col and not xy_cols:
         elapsed = time.perf_counter() - started
         logger.debug("[_split_file_group] block=early_skip done: elapsed=%.2fs", elapsed)
@@ -777,17 +820,29 @@ def _split_file_group(
                     if file_name_lower == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
                         transcript_id_values = subset["transcript_id"].to_numpy()
 
+                    # transcripts.zarr.zip: filter by region but keep global coordinates unchanged.
+                    # cells.zarr.zip and others: rebase as before.
+                    if file_name_lower == "transcripts.zarr.zip":
+                        _rebase_region_for_zarr = None
+                    elif xy_cols is not None or file_name_lower == "cells.zarr.zip":
+                        _rebase_region_for_zarr = region
+                    else:
+                        _rebase_region_for_zarr = None
                     ok = filter_zarr_zip_by_row_indices_preserve_schema(
                         fp,
                         dest,
                         subset.index.to_numpy(dtype=int),
                         base_row_count=len(table),
-                        rebase_region=region if (xy_cols is not None or file_name_lower in {"cells.zarr.zip", "transcripts.zarr.zip"}) else None,
+                        rebase_region=_rebase_region_for_zarr,
                         pixel_size_um=config.pixel_size_um,
                         transcript_id_values=transcript_id_values,
                         transcript_table=subset if file_name_lower == "transcripts.zarr.zip" else None,
                     )
                     if not ok:
+                        if file_name_lower == "transcripts.zarr.zip":
+                            raise RuntimeError(
+                                "Schema-preserving filter failed for transcripts.zarr.zip"
+                            )
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(fp, dest)
                         logger.warning(
@@ -806,15 +861,19 @@ def _split_file_group(
 
             metrics.files_processed += 1
             write_elapsed = time.perf_counter() - write_start
+            metric_detail = f"{detail_prefix} [read once, {len(file_paths)} formats]"
+            metric_rows_input = len(table)
+            metric_rows_written_total = rows_written_total
+            metric_rows_by_region = dict(rows_by_region)
             metrics.file_metrics.append(
                 FileMetric(
                     source_path=str(rel),
                     file_type=file_type,
                     status="processed",
-                    detail=f"{detail_prefix} [read once, {len(file_paths)} formats]",
-                    rows_input=len(table),
-                    rows_written_total=rows_written_total,
-                    rows_written_by_region=dict(rows_by_region),
+                    detail=metric_detail,
+                    rows_input=metric_rows_input,
+                    rows_written_total=metric_rows_written_total,
+                    rows_written_by_region=metric_rows_by_region,
                     duration_s=read_elapsed + write_elapsed,
                 )
             )
@@ -1625,8 +1684,14 @@ def _split_zarr(
         if lower_name == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
             transcript_id_values = subset["transcript_id"].to_numpy()
 
-        # Rebase/retile for cell/transcript zarrs to keep Explorer spatial data consistent.
-        rebase_region = region if lower_name in {"cells.zarr.zip", "transcripts.zarr.zip"} else None
+        # transcripts.zarr.zip: filter by region but keep global coordinates unchanged.
+        # cells.zarr.zip: rebase coordinates to crop origin as before.
+        if lower_name == "transcripts.zarr.zip":
+            rebase_region = None
+        elif lower_name == "cells.zarr.zip":
+            rebase_region = region
+        else:
+            rebase_region = None
 
         ok = filter_zarr_zip_by_row_indices_preserve_schema(
             file_path,
@@ -1639,6 +1704,10 @@ def _split_zarr(
             transcript_table=subset if lower_name == "transcripts.zarr.zip" else None,
         )
         if not ok:
+            if lower_name == "transcripts.zarr.zip":
+                raise RuntimeError(
+                    "Schema-preserving filter failed for transcripts.zarr.zip"
+                )
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, destination)
             logger.warning(
