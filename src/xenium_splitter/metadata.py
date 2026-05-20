@@ -108,6 +108,47 @@ def _append_timing_breakdown(lines: list[str], metrics: RunMetrics) -> None:
             lines.append(f"| {source} | {file_type} | {status} | {duration_s:.2f} |")
 
 
+def _append_fov_layout_section(lines: list[str], metrics: RunMetrics) -> None:
+    summary = metrics.extra.get("fov_layout_summary")
+    if not isinstance(summary, dict) or not summary:
+        return
+
+    fov_rows_px = int(summary.get("fov_rows_px", 0) or 0)
+    fov_cols_px = int(summary.get("fov_cols_px", 0) or 0)
+    fov_overlap_px = int(summary.get("fov_overlap_px", 0) or 0)
+    stride_rows_px = int(summary.get("fov_stride_rows_px", 0) or 0)
+    stride_cols_px = int(summary.get("fov_stride_cols_px", 0) or 0)
+    max_fov_x = int(summary.get("max_potential_fov_x", 0) or 0)
+    max_fov_y = int(summary.get("max_potential_fov_y", 0) or 0)
+    sw_version = summary.get("instrument_sw_version")
+    pixel_size_um = summary.get("pixel_size_um")
+
+    lines.append("")
+    lines.append("## FOV Layout")
+    lines.append("")
+    lines.append(f"- Instrument SW version: {sw_version if sw_version else 'Unknown'}")
+    if pixel_size_um is not None:
+        lines.append(f"- Pixel size (um): {float(pixel_size_um):.6f}")
+    lines.append(f"- FOV dimensions (rows x cols, px): {fov_rows_px} x {fov_cols_px}")
+    lines.append(f"- FOV overlap (px): {fov_overlap_px}")
+    lines.append(f"- FOV stride (Y rows px): {stride_rows_px}")
+    lines.append(f"- FOV stride (X cols px): {stride_cols_px}")
+    lines.append(f"- Max potential FOV in X direction: {max_fov_x}")
+    lines.append(f"- Max potential FOV in Y direction: {max_fov_y}")
+
+    per_region = summary.get("per_region")
+    if isinstance(per_region, list) and per_region:
+        lines.append("")
+        lines.append("### Per-Region Potential FOV")
+        lines.append("")
+        lines.append("| Region | Width (px) | Height (px) | Potential FOV X | Potential FOV Y |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for row in sorted(per_region, key=lambda r: str(r.get("region_id", ""))):
+            lines.append(
+                f"| {row.get('region_id', '')} | {int(row.get('width_px', 0) or 0)} | {int(row.get('height_px', 0) or 0)} | {int(row.get('potential_fov_x', 0) or 0)} | {int(row.get('potential_fov_y', 0) or 0)} |"
+            )
+
+
 def _append_always_skipped_section(lines: list[str], metrics: RunMetrics) -> None:
     by_rule = metrics.extra.get("always_skipped_by_rule")
     if not isinstance(by_rule, dict) or not by_rule:
@@ -220,6 +261,7 @@ def build_run_metadata_markdown(
     lines.append(f"- Files processed: {metrics.files_processed}")
     lines.append(f"- Files skipped: {metrics.files_skipped}")
     lines.append(f"- Files failed: {metrics.files_failed}")
+    _append_fov_layout_section(lines, metrics)
     _append_boundary_entity_counts(lines, metrics)
     _append_always_skipped_section(lines, metrics)
 

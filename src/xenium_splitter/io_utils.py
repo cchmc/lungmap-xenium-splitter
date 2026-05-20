@@ -12,6 +12,7 @@ import warnings
 import zipfile
 
 import pandas as pd
+import numpy as np
 from shapely import contains_xy
 from shapely.geometry import Polygon
 from shapely.wkt import loads as wkt_loads
@@ -151,6 +152,135 @@ def detect_xy_columns(df: pd.DataFrame) -> tuple[str, str] | None:
     return None
 
 
+def _index_to_alpha_label(index: int) -> str:
+    """Convert 0-based row index to Excel-like labels: 0->A, 25->Z, 26->AA."""
+    value = max(0, int(index))
+    label = ""
+    while True:
+        value, rem = divmod(value, 26)
+        label = chr(ord("A") + rem) + label
+        if value == 0:
+            break
+        value -= 1
+    return label
+
+
+def _generate_alpha_numeric_fov_names(total_fovs: int, grid_cols: int | None = None) -> list[str]:
+    """Generate names in index order as A1,A2,...,B1,B2,...."""
+    total = max(0, int(total_fovs))
+    if total == 0:
+        return []
+    cols = int(grid_cols) if grid_cols is not None and int(grid_cols) > 0 else total
+    return [f"{_index_to_alpha_label(i // cols)}{(i % cols) + 1}" for i in range(total)]
+
+
+def _generate_legacy_fov_names(total_fovs: int) -> list[str]:
+    """Generate legacy Xenium-style names as fov_<index>."""
+    total = max(0, int(total_fovs))
+    return [f"fov_{i}" for i in range(total)]
+
+
+def _generate_fov_names(total_fovs: int, grid_cols: int | None = None) -> list[str]:
+    """Generate Letter+Number names in index order: A1,A2,...,B1,B2,...
+
+    Keep _generate_legacy_fov_names() available so the legacy naming
+    scheme can be restored quickly if needed.
+    """
+    return _generate_alpha_numeric_fov_names(total_fovs, grid_cols)
+
+
+def validate_transcripts_id_uuid_schema(root) -> dict[str, int | bool]:
+    """Validate Xenium transcript identity schema in a transcripts zarr root.
+
+    Required invariant for each row where both arrays are present:
+    - id[:, 0] == uuid[:, 0]
+    - uuid[:, 1] == 65536 + id[:, 1]
+    """
+    if "grids" not in root or "0" not in root["grids"]:
+        return {"checked_rows": 0, "checked_tiles": 0, "max_id1": -1, "ok": True}
+
+    level0 = root["grids"]["0"]
+    checked_rows = 0
+    checked_tiles = 0
+    max_id1 = -1
+    canonical_pairs: list[np.ndarray] = []
+
+    for tile_key in level0.keys():
+        tile = level0[tile_key]
+        if "id" not in tile or "uuid" not in tile:
+            continue
+
+        id_arr = tile["id"][:]
+        uuid_arr = tile["uuid"][:]
+
+        if getattr(id_arr, "ndim", 0) != 2 or id_arr.shape[1] < 2:
+            raise ValueError(f"Invalid id array shape at grids/0/{tile_key}: {getattr(id_arr, 'shape', None)}")
+        if getattr(uuid_arr, "ndim", 0) != 2 or uuid_arr.shape[1] < 2:
+            raise ValueError(
+                f"Invalid uuid array shape at grids/0/{tile_key}: {getattr(uuid_arr, 'shape', None)}"
+            )
+        if id_arr.shape[0] != uuid_arr.shape[0]:
+            raise ValueError(
+                f"Row mismatch at grids/0/{tile_key}: id_rows={id_arr.shape[0]} uuid_rows={uuid_arr.shape[0]}"
+            )
+
+        if id_arr.shape[0] == 0:
+            checked_tiles += 1
+            continue
+
+        id0 = id_arr[:, 0].astype(np.uint64, copy=False)
+        id1 = id_arr[:, 1].astype(np.uint64, copy=False)
+        uuid0 = uuid_arr[:, 0].astype(np.uint64, copy=False)
+        uuid1 = uuid_arr[:, 1].astype(np.uint64, copy=False)
+
+        bad0 = np.where(uuid0 != id0)[0]
+        if bad0.size > 0:
+            i = int(bad0[0])
+            raise ValueError(
+                f"id/uuid low-word mismatch at grids/0/{tile_key} row={i}: "
+                f"id0={int(id0[i])} uuid0={int(uuid0[i])}"
+            )
+
+        expected_uuid1 = np.uint64(65536) + id1
+        bad1 = np.where(uuid1 != expected_uuid1)[0]
+        if bad1.size > 0:
+            i = int(bad1[0])
+            raise ValueError(
+                f"id/uuid high-word mismatch at grids/0/{tile_key} row={i}: "
+                f"id1={int(id1[i])} uuid1={int(uuid1[i])} expected={int(expected_uuid1[i])}"
+            )
+
+        canonical_pairs.append((id1 << np.uint64(32)) | id0)
+
+        tile_max_id1 = int(np.max(id1))
+        max_id1 = max(max_id1, tile_max_id1)
+        checked_rows += int(id_arr.shape[0])
+        checked_tiles += 1
+
+    if canonical_pairs:
+        canonical_all = np.concatenate(canonical_pairs)
+        if np.unique(canonical_all).size != canonical_all.size:
+            raise ValueError("Duplicate (fov_index, transcript_id) pairs detected in grids/0")
+
+    number_fovs = root.attrs.get("number_fovs")
+    if number_fovs is not None:
+        try:
+            n_fovs = int(number_fovs)
+        except Exception:
+            n_fovs = 0
+        if n_fovs > 0 and max_id1 >= n_fovs:
+            raise ValueError(
+                f"FOV index out of bounds: max(id[:,1])={max_id1}, number_fovs={n_fovs}"
+            )
+
+    return {
+        "checked_rows": int(checked_rows),
+        "checked_tiles": int(checked_tiles),
+        "max_id1": int(max_id1),
+        "ok": True,
+    }
+
+
 def subset_table_for_region(
     df: pd.DataFrame,
     region: LassoRegion,
@@ -210,14 +340,8 @@ def subset_table_for_region_optimized(
     transcripts have cell assignments.
 
     Args:
-        df: Input DataFrame with coordinate columns and optional cell_id column
-        region: LASSO region with polygon definition
-        x_col: Name of x-coordinate column
-        y_col: Name of y-coordinate column
-        region_entity_ids: Set of cell IDs in this region (optional; when provided,
-                          assigned transcripts are fast-filtered by cell membership)
-        pixel_size_um: Pixel size in micrometers (optional); when provided, crop origin is
-                       computed using floor(bounds/pixel_size) to align with image cropping
+            x_col: Name of x-coordinate column
+            y_col: Name of y-coordinate column
 
     Returns:
         Subset of df with rows in region, coordinates rebased to crop origin
@@ -379,13 +503,11 @@ def rebase_table_coordinates_to_region_crop(
         region: LASSO region defining the crop bounding box
         x_col: Name of x-coordinate column
         y_col: Name of y-coordinate column
-        pixel_size_um: Pixel size for pixel-boundary-aligned origin computation
+        pixel_size_um: Pixel size in micrometers when image alignment is needed
 
     Returns:
-        DataFrame with coordinates shifted so crop origin is (0, 0) in micrometers
+        DataFrame with rebased x/y coordinates
     """
-    if df.empty:
-        return df
 
     origin_x, origin_y = _region_crop_origin_um(region, pixel_size_um=pixel_size_um)
     x_before = pd.to_numeric(df[x_col], errors="coerce")
@@ -433,6 +555,88 @@ def load_pixel_size_from_experiment(input_dir: Path) -> float | None:
         return payload.get("pixel_size")
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def load_instrument_sw_version_from_experiment(input_dir: Path) -> str | None:
+    """Extract instrument_sw_version from experiment.xenium if present."""
+    exp_path = input_dir / "experiment.xenium"
+    if not exp_path.exists():
+        return None
+
+    try:
+        payload = json.loads(exp_path.read_text(encoding="utf-8"))
+        version = payload.get("instrument_sw_version")
+        return str(version) if version is not None else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def get_fov_dimensions_px_for_sw_version(instrument_sw_version: str | None) -> tuple[int, int]:
+    """Return (rows_px, cols_px) for Xenium FOV based on instrument software version.
+
+    Rules:
+    - < 1.2  -> 4240 rows x 2960 cols
+    - >= 1.2 -> 3520 rows x 2960 cols
+    """
+    default_rows, default_cols = 3520, 2960
+    if not instrument_sw_version:
+        return default_rows, default_cols
+
+    try:
+        parts = [int(p) for p in str(instrument_sw_version).split(".") if p.strip() != ""]
+    except Exception:
+        return default_rows, default_cols
+
+    major = parts[0] if len(parts) > 0 else 0
+    minor = parts[1] if len(parts) > 1 else 0
+    if (major, minor) < (1, 2):
+        return 4240, 2960
+    return 3520, 2960
+
+
+def calculate_fov_layout_and_assignments(
+    x_um,
+    y_um,
+    pixel_size_um: float,
+    fov_rows_px: int,
+    fov_cols_px: int,
+    overlap_px: int = 128,
+) -> tuple[pd.Series, dict[str, int]]:
+    """Compute transcript FOV indices from rebased coordinates and FOV geometry.
+
+    Coordinates are in micrometers and converted to pixel coordinates using
+    pixel_size_um. FOV placement uses stride=(dimension-overlap) on each axis.
+    Returns row-major FOV indices and a metadata summary.
+    """
+    import numpy as np
+
+    if pixel_size_um <= 0:
+        raise ValueError("pixel_size_um must be > 0")
+
+    step_x = max(1, int(fov_cols_px) - int(overlap_px))
+    step_y = max(1, int(fov_rows_px) - int(overlap_px))
+
+    x_px = np.floor(np.maximum(np.asarray(x_um, dtype=np.float64), 0.0) / float(pixel_size_um)).astype(np.int64)
+    y_px = np.floor(np.maximum(np.asarray(y_um, dtype=np.float64), 0.0) / float(pixel_size_um)).astype(np.int64)
+
+    fov_x = x_px // step_x
+    fov_y = y_px // step_y
+
+    grid_cols = int(np.max(fov_x)) + 1 if fov_x.size > 0 else 1
+    grid_rows = int(np.max(fov_y)) + 1 if fov_y.size > 0 else 1
+    fov_idx = (fov_y * grid_cols + fov_x).astype(np.uint32, copy=False)
+
+    metadata = {
+        "fov_rows_px": int(fov_rows_px),
+        "fov_cols_px": int(fov_cols_px),
+        "fov_overlap_px": int(overlap_px),
+        "fov_stride_rows_px": int(step_y),
+        "fov_stride_cols_px": int(step_x),
+        "fov_grid_rows": int(grid_rows),
+        "fov_grid_cols": int(grid_cols),
+        "number_fovs": int(grid_rows * grid_cols),
+    }
+    return pd.Series(fov_idx), metadata
 
 
 def list_hdf5_datasets(h5_path: Path) -> list[str]:
@@ -546,7 +750,7 @@ def write_zarr_zip_table(df: pd.DataFrame, output_path: Path, dataset_name: str 
 
     Uses a compatibility ZipStore helper to write zarr chunks directly into the zip file, avoiding
     a temp directory and a second compression pass.  ZIP_STORED is used at the
-    outer zip layer.  No zarr-level compression is applied either — compression at
+    outer zip layer.  No zarr-level compression is applied either - compression at
     both layers wastes CPU with no size benefit when ZIP_STORED is used.
 
     Only numeric and bool columns are written, to avoid zarr v3 ambiguous-dtype
@@ -605,6 +809,8 @@ def write_zarr_zip_table(df: pd.DataFrame, output_path: Path, dataset_name: str 
                 root[dataset_name].attrs["column_names"] = numeric_cols
             finally:
                 store.close()
+            # Deduplicate any .zattrs files at the top level that ZipStore may have created
+            _dedupe_zip_entries_keep_last(output_path)
     except Exception as e:
         logger.error(f"Failed to write Zarr ZIP to {output_path.name}: {e}")
 
@@ -672,13 +878,30 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
             transcript_ids_sorted = None
             transcript_id_mode["kind"] = None
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
+    experiment_dir = zarr_zip_path.parent
+    instrument_sw_version = load_instrument_sw_version_from_experiment(experiment_dir)
+    fov_rows_px, fov_cols_px = get_fov_dimensions_px_for_sw_version(instrument_sw_version)
+    fov_overlap_px = 128
+    effective_pixel_size_um = pixel_size_um if pixel_size_um is not None else load_pixel_size_from_experiment(experiment_dir)
+    recomputed_fov_metadata: dict[str, int] | None = None
+
+    if effective_pixel_size_um is None or effective_pixel_size_um <= 0:
+        logger.warning(
+            "Could not determine pixel_size for FOV reassignment in %s; using 1.0 um/px fallback",
+            zarr_zip_path.name,
+        )
+        effective_pixel_size_um = 1.0
     
     logger.debug(
-        "[filter_zarr_zip_preserve_schema] START: input=%s output=%s rows_before=%d rows_after=%d",
+        "[filter_zarr_zip_preserve_schema] START: input=%s output=%s rows_before=%d rows_after=%d sw=%s fov_rows=%d fov_cols=%d overlap=%d",
         zarr_zip_path.name,
         output_path.name,
         base_row_count,
         len(indices),
+        instrument_sw_version,
+        fov_rows_px,
+        fov_cols_px,
+        fov_overlap_px,
     )
 
     with tempfile.TemporaryDirectory(dir=_xenium_temp_root(), prefix="zarr_schema_in_") as tmpdir_in:
@@ -823,6 +1046,10 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     return out
 
                 def _copy_group(src_group, dst_group, path_prefix: str = "") -> None:
+                    preserve_unfiltered_arrays = {
+                        "gene_category",
+                        "codeword_category",
+                    }
                     for attr_key, attr_val in dict(src_group.attrs).items():
                         dst_group.attrs[attr_key] = attr_val
 
@@ -864,13 +1091,21 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                         path_prefix, key,
                                     )
                                 else:
-                                    # Array doesn't span full input table and we don't have a mask for it.
-                                    # Skip copying this array entirely.
-                                    logger.debug(
-                                        "[_copy_group] path=%s/%s SKIPPED (no_mask_not_spanning_full_table) shape=%s",
-                                        path_prefix, key, node.shape,
-                                    )
-                                    continue
+                                    # Preserve known root-level category arrays unchanged.
+                                    if key_path in preserve_unfiltered_arrays:
+                                        logger.debug(
+                                            "[_copy_group] path=%s COPIED unchanged (preserve_unfiltered_array) shape=%s",
+                                            key_path,
+                                            node.shape,
+                                        )
+                                    else:
+                                        # Array doesn't span full input table and we don't have a mask for it.
+                                        # Skip copying this array entirely.
+                                        logger.debug(
+                                            "[_copy_group] path=%s/%s SKIPPED (no_mask_not_spanning_full_table) shape=%s",
+                                            path_prefix, key, node.shape,
+                                        )
+                                        continue
                             elif getattr(node, "ndim", 0) >= 1:
                                 # Not filtering by transcript_id: use row indices as before.
                                 match_axes = [ax for ax, sz in enumerate(node.shape) if int(sz) == int(base_row_count)]
@@ -913,6 +1148,16 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             for attr_key, attr_val in dict(node.attrs).items():
                                 dst_arr.attrs[attr_key] = attr_val
                         else:
+                            # Skip the grids group entirely when filtering transcripts: it will be
+                            # rebuilt from scratch by _rebuild_transcript_grids_and_density.
+                            # This avoids writing stale tile data into the ZipStore (which is
+                            # write-once and cannot have keys deleted or overwritten).
+                            if key == "grids" and (transcript_ids is not None or origin_xy is not None) and not path_prefix:
+                                logger.debug(
+                                    "[_copy_group] path=%s SKIPPED (grids will be rebuilt fresh)",
+                                    key_path,
+                                )
+                                continue
                             dst_sub = dst_group.require_group(key)
                             _copy_group(node, dst_sub, key_path)
 
@@ -923,28 +1168,19 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     After rebasing locations, rows must be moved into new tiles based on the
                     grid size for each level; otherwise tile keys and locations are inconsistent.
                     """
-                    if transcript_ids is None or "grids" not in dst_root:
+                    if (transcript_ids is None and origin_xy is None) or "grids" not in src_root:
                         return
 
-                    grids_group = dst_root["grids"]
-                    old_grid_attrs = dict(grids_group.attrs)
-                    existing_level_names = sorted(list(grids_group.keys()), key=lambda s: int(str(s)) if str(s).isdigit() else str(s))
-                    if not existing_level_names:
+                    # Grids was skipped during _copy_group (to avoid writing stale tile data into
+                    # the write-once ZipStore). Read all metadata directly from the source.
+                    grids_group = src_root["grids"]
+                    source_grid_attrs = dict(grids_group.attrs)
+                    source_level_names = sorted(
+                        list(grids_group.keys()),
+                        key=lambda s: int(str(s)) if str(s).isdigit() else str(s),
+                    )
+                    if not source_level_names:
                         return
-
-                    source_grid_attrs = dict(old_grid_attrs)
-                    source_level_names = list(existing_level_names)
-                    try:
-                        if "grids" in src_root:
-                            src_grids_group = src_root["grids"]
-                            source_grid_attrs = dict(src_grids_group.attrs)
-                            source_level_names = sorted(
-                                list(src_grids_group.keys()),
-                                key=lambda s: int(str(s)) if str(s).isdigit() else str(s),
-                            )
-                    except Exception:
-                        source_grid_attrs = dict(old_grid_attrs)
-                        source_level_names = list(existing_level_names)
 
                     # Keep output pyramid depth aligned with the input store.
                     level_names = source_level_names if source_level_names else existing_level_names
@@ -1005,6 +1241,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         return str(value)
 
                     def _build_from_transcript_table(table_df, template_level_group):
+                        nonlocal recomputed_fov_metadata
                         if table_df is None or getattr(table_df, "empty", True):
                             return None, None
                         x_col, y_col = _detect_xy_cols(table_df)
@@ -1047,43 +1284,47 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         merged = {
                             "location": np.stack([x, y, z], axis=1).astype(np.float32, copy=False)
                         }
+                        new_tid64 = None
 
-                        # Build id from transcript_id where available (10x convention: low + 2^48)
+                        # Build id from transcript_id where available.
+                        # Preserve original Xenium semantics:
+                        # - id[:,0] is transcript ID unique within a FOV
+                        # - id[:,1] is the original FOV index
                         if "transcript_id" in table_df.columns:
                             tid = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
                             tid = np.nan_to_num(tid, nan=0.0).astype(np.int64, copy=False)
-                            low = (tid - (np.int64(1) << np.int64(48))).astype(np.int64, copy=False)
-                            low = np.maximum(low, 0)
+                            one_shift_48 = (np.int64(1) << np.int64(48))
+                            payload = np.where(tid >= one_shift_48, tid - one_shift_48, tid).astype(np.int64, copy=False)
+                            old_low = (payload & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
+                            old_fov = ((payload >> np.int64(32)) & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
 
-                            # Build transcript FOV index from parquet transcript fields.
-                            # Prefer fov_name->root attrs fov_names mapping when available,
-                            # then fall back to numeric parquet fov_index.
-                            fov_idx = np.zeros(n, dtype=np.uint32)
-                            resolved_mask = np.zeros(n, dtype=bool)
+                            new_tid64 = (
+                                one_shift_48
+                                + (old_fov.astype(np.int64, copy=False) << np.int64(32))
+                                + old_low.astype(np.int64, copy=False)
+                            ).astype(np.int64, copy=False)
 
-                            if (not np.all(resolved_mask)) and "fov_name" in table_df.columns:
-                                fov_names = dst_root.attrs.get("fov_names", [])
-                                if isinstance(fov_names, (list, tuple)) and len(fov_names) > 0:
-                                    fov_to_idx = {_normalize_fov_name(name): i for i, name in enumerate(fov_names)}
-                                    mapped = table_df.loc[finite_loc, "fov_name"].map(fov_to_idx)
-                                    mapped_valid = mapped.notna().to_numpy(dtype=bool, copy=False)
-                                    mapped_u32 = mapped.fillna(0).astype(np.uint32).to_numpy(copy=False)
-                                    fill_mask = ~resolved_mask
-                                    use_mask = fill_mask & mapped_valid
-                                    fov_idx[use_mask] = mapped_u32[use_mask]
-                                    resolved_mask[use_mask] = True
-
-                            if (not np.all(resolved_mask)) and "fov_index" in table_df.columns:
-                                fi = pd.to_numeric(table_df.loc[finite_loc, "fov_index"], errors="coerce").to_numpy(dtype=np.float64)
-                                fi = np.nan_to_num(fi, nan=0.0)
-                                fi = np.maximum(fi, 0.0)
-                                fi_u32 = fi.astype(np.uint32, copy=False)
-                                fill_mask = ~resolved_mask
-                                fov_idx[fill_mask] = fi_u32[fill_mask]
-                                resolved_mask[fill_mask] = True
+                            if output_path.name.lower() == "transcripts.zarr.zip":
+                                remap_path = output_path.with_name("transcripts_id_fov_remap.csv.gz")
+                                remap_df = pd.DataFrame(
+                                    {
+                                        "old_transcript_id": tid,
+                                        "old_fov": old_fov,
+                                        "old_local_id": old_low,
+                                        "new_transcript_id": new_tid64,
+                                        "new_fov": old_fov,
+                                        "new_local_id": old_low,
+                                    }
+                                )
+                                remap_df.to_csv(remap_path, index=False, compression="gzip")
+                                logger.info(
+                                    "Wrote transcript ID/FOV remap log: %s (%d rows)",
+                                    remap_path,
+                                    len(remap_df),
+                                )
 
                             merged["id"] = np.stack(
-                                [low.astype(np.uint32, copy=False), fov_idx],
+                                [old_low, old_fov],
                                 axis=1,
                             )
 
@@ -1125,11 +1366,14 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         else:
                             merged["quality_score"] = np.zeros((n, 1), dtype=np.float32)
 
-                        # uuid: encode transcript_id as two uint32 words (low 32 bits, high 32 bits)
-                        # This mirrors the original zarr schema where each transcript has a unique 64-bit uuid.
+                        # uuid: encode transcript_id-like 64-bit identifier as two uint32 words.
+                        # When transcript IDs are rebuilt, keep uuid in sync with rebuilt IDs.
                         if "transcript_id" in table_df.columns:
-                            tid64 = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
-                            tid64 = np.nan_to_num(tid64, nan=0.0).astype(np.int64, copy=False)
+                            if new_tid64 is not None:
+                                tid64 = new_tid64
+                            else:
+                                tid64 = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
+                                tid64 = np.nan_to_num(tid64, nan=0.0).astype(np.int64, copy=False)
                             uuid_lo = (tid64 & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
                             uuid_hi = ((tid64 >> np.int64(32)) & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
                             merged["uuid"] = np.stack([uuid_lo, uuid_hi], axis=1)
@@ -1290,45 +1534,32 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     for arr_name in list(merged_base.keys()):
                         merged_base[arr_name] = merged_base[arr_name][finite_mask, ...]
 
-                    # Compact FOV indices in id[:,1] to 0-based consecutive before tiling.
+                    # Hard safety guard: level-0 transcript IDs must be unique.
+                    # Any duplicates here are true collisions and are removed by keeping
+                    # the first occurrence consistently across all arrays.
                     if "id" in merged_base:
                         try:
                             id_arr = merged_base.get("id")
-                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[1] > 1:
-                                # Collect unique FOV indices
-                                fov_old = id_arr[:, 1].astype(np.int64, copy=False)
-                                used_fov = np.unique(fov_old)
-                                used_fov = used_fov[used_fov >= 0]
-                                
-                                # Only compact if indices are not already 0-based consecutive
-                                if used_fov.size > 0 and (used_fov[0] != 0 or used_fov[-1] != used_fov.size - 1):
-                                    # Build lookup table
-                                    max_old_fov = int(used_fov[-1])
-                                    fov_lut = np.full(max_old_fov + 1, -1, dtype=np.int64)
-                                    for new_i, old_i in enumerate(used_fov.tolist()):
-                                        fov_lut[int(old_i)] = new_i
-                                    
-                                    # Apply remap to id[:,1]
-                                    clipped = np.clip(fov_old, 0, max_old_fov)
-                                    new_fov = np.where(
-                                        (fov_old >= 0) & (fov_old <= max_old_fov) & (fov_lut[clipped] >= 0),
-                                        fov_lut[clipped],
-                                        fov_old,
-                                    ).astype(np.uint32)
-                                    id_arr[:, 1] = new_fov
-                                    
-                                    # Update fov_names in root attrs to match compacted FOVs
-                                    if "fov_names" in dst_root.attrs:
-                                        raw_fov_names = list(dst_root.attrs["fov_names"])
-                                        new_fov_names = []
-                                        for old_i in used_fov.tolist():
-                                            if 0 <= int(old_i) < len(raw_fov_names):
-                                                new_fov_names.append(str(raw_fov_names[int(old_i)]))
-                                            else:
-                                                new_fov_names.append(str(int(old_i)))
-                                        dst_root.attrs["fov_names"] = new_fov_names
+                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[1] >= 2 and id_arr.shape[0] > 0:
+                                low_u64 = id_arr[:, 0].astype(np.uint64, copy=False)
+                                fov_u64 = id_arr[:, 1].astype(np.uint64, copy=False)
+                                canonical = (
+                                    np.uint64(1 << 48)
+                                    + (fov_u64 << np.uint64(32))
+                                    + low_u64
+                                )
+                                _, uniq_idx = np.unique(canonical, return_index=True)
+                                if uniq_idx.size < canonical.size:
+                                    uniq_idx = np.sort(uniq_idx.astype(np.int64, copy=False))
+                                    dropped = int(canonical.size - uniq_idx.size)
+                                    for arr_name in list(merged_base.keys()):
+                                        merged_base[arr_name] = merged_base[arr_name][uniq_idx, ...]
+                                    logger.warning(
+                                        "Removed %d duplicate transcript IDs while rebuilding level-0 grids",
+                                        dropped,
+                                    )
                         except Exception:
-                            logger.debug("Pre-tiling FOV compaction failed", exc_info=True)
+                            logger.debug("Level-0 transcript ID collision guard failed", exc_info=True)
 
                     level_source = merged_base
                     for level_idx, level_name in enumerate(level_names):
@@ -1340,9 +1571,18 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             level_source = _subsample_level_arrays(level_source, next_count)
 
                         tile_size = _tile_size_for_level(str(level_name), level_idx)
+                        
+                        # Arrays built from transcript_table are already crop-local.
+                        # Only subtract the crop origin when rebuilding from source grid data.
+                        locations_for_tiling = level_source["location"].copy()
+                        if origin_xy is not None and not built_from_table:
+                            x0, y0 = origin_xy
+                            locations_for_tiling[:, 0] -= x0
+                            locations_for_tiling[:, 1] -= y0
+                        
                         # Compute tile coordinates from rebased locations at every level.
-                        gx = np.floor(level_source["location"][:, 0] / tile_size).astype(np.int64, copy=False)
-                        gy = np.floor(level_source["location"][:, 1] / tile_size).astype(np.int64, copy=False)
+                        gx = np.floor(locations_for_tiling[:, 0] / tile_size).astype(np.int64, copy=False)
+                        gy = np.floor(locations_for_tiling[:, 1] / tile_size).astype(np.int64, copy=False)
                         
                         # Some transcripts can have slightly negative rebased coordinates.
                         # Keep coordinates unchanged, but pin grid tile indices to non-negative
@@ -1364,9 +1604,22 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 name: arr[row_mask, ...]
                                 for name, arr in level_source.items()
                             }
-                            level_tiles.append((tile_key, tile_arrays, array_meta_base))
-                            level_keys.append(tile_key)
-                            level_counts.append(int(tile_arrays["location"].shape[0]))
+                            tile_count = int(tile_arrays["location"].shape[0])
+                            
+                            # Only include non-empty tiles in metadata and rebuilt list.
+                            if tile_count > 0:
+                                # Arrays built from transcript_table are already crop-local.
+                                # Only rebase stored locations when source grid data was used.
+                                if origin_xy is not None and not built_from_table and "location" in tile_arrays:
+                                    x0, y0 = origin_xy
+                                    loc = tile_arrays["location"].copy()
+                                    loc[:, 0] -= x0
+                                    loc[:, 1] -= y0
+                                    tile_arrays["location"] = loc
+                                
+                                level_tiles.append((tile_key, tile_arrays, array_meta_base))
+                                level_keys.append(tile_key)
+                                level_counts.append(tile_count)
 
                         if str(level_name) == "0":
                             level0_total = int(sum(level_counts))
@@ -1375,14 +1628,42 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         grid_keys_by_level.append(level_keys)
                         grid_counts_by_level.append(level_counts)
 
-                    # Replace grids subtree with re-tiled groups
-                    if "grids" in dst_root:
-                        del dst_root["grids"]
+                    # Grids was not copied (skipped in _copy_group), so create it fresh.
+                    # No delete needed — ZipStore is write-once and can't delete, but since
+                    # we never wrote grids keys, we can create them without conflict.
                     new_grids = dst_root.require_group("grids")
 
                     for level_name, level_tiles in rebuilt_levels:
                         level_group = new_grids.require_group(level_name)
                         for tile_key, tile_arrays, meta in level_tiles:
+                            # Safety invariant: keep uuid consistent with id for every rebuilt tile.
+                            # canonical64 = (1<<48) + (id[:,1]<<32) + id[:,0]
+                            id_arr = tile_arrays.get("id")
+                            uuid_arr = tile_arrays.get("uuid")
+                            if (
+                                id_arr is not None
+                                and uuid_arr is not None
+                                and getattr(id_arr, "ndim", 0) == 2
+                                and getattr(uuid_arr, "ndim", 0) == 2
+                                and id_arr.shape[1] >= 2
+                                and uuid_arr.shape[1] >= 2
+                                and id_arr.shape[0] == uuid_arr.shape[0]
+                            ):
+                                low_u64 = id_arr[:, 0].astype(np.uint64, copy=False)
+                                fov_u64 = id_arr[:, 1].astype(np.uint64, copy=False)
+                                canonical_u64 = (
+                                    np.uint64(1 << 48)
+                                    + (fov_u64 << np.uint64(32))
+                                    + low_u64
+                                )
+                                tile_arrays["uuid"] = np.stack(
+                                    [
+                                        (canonical_u64 & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                        ((canonical_u64 >> np.uint64(32)) & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                    ],
+                                    axis=1,
+                                )
+
                             tile_group = level_group.require_group(tile_key)
                             for arr_name, arr_data in tile_arrays.items():
                                 m = meta.get(arr_name, {})
@@ -1426,12 +1707,68 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     for ak, av in new_grid_attrs.items():
                         new_grids.attrs[ak] = av
 
-                    # Update number_rnas at root to filtered level-0 transcript count.
-                    try:
-                        dst_root.attrs["number_rnas"] = int(level0_total)
-                    except Exception:
-                        pass
+                    # Update root-level FOV metadata.
+                    # Use the actually referenced level-0 id[:,1] indices as source of truth.
+                    # This trims unnecessary trailing fov_names while preserving index mapping.
+                    new_fov_metadata = {}
+                    used_fov_indices: set[int] = set()
+                    level0_grid_cols: int | None = None
+                    if len(rebuilt_levels) > 0:
+                        level0_tiles = rebuilt_levels[0][1]  # (level_name, level_tiles) -> level_tiles
+                        level0_coords: list[tuple[int, int]] = []
+                        for _tile_key, tile_arrays, _meta in level0_tiles:
+                            try:
+                                tx, ty = map(int, str(_tile_key).split(","))
+                                level0_coords.append((tx, ty))
+                            except Exception:
+                                pass
+                            id_arr = tile_arrays.get("id")
+                            if id_arr is None or getattr(id_arr, "ndim", 0) != 2 or id_arr.shape[1] < 2 or id_arr.shape[0] == 0:
+                                continue
+                            vals = np.unique(id_arr[:, 1].astype(np.int64, copy=False))
+                            used_fov_indices.update(int(v) for v in vals.tolist() if int(v) >= 0)
+                        if level0_coords:
+                            level0_grid_cols = max((c[0] for c in level0_coords), default=0) + 1
 
+                    if used_fov_indices:
+                        max_used = max(used_fov_indices)
+                        total_fovs = int(max_used + 1)
+                        raw_fov_names = dst_root.attrs.get("fov_names", [])
+                        if isinstance(raw_fov_names, (list, tuple)):
+                            old_fov_names = [str(v) for v in raw_fov_names]
+                        else:
+                            old_fov_names = []
+                        generated_fov_names = _generate_fov_names(total_fovs, level0_grid_cols)
+                        new_fov_names = [
+                            old_fov_names[i] if i < len(old_fov_names) else generated_fov_names[i]
+                            for i in range(total_fovs)
+                        ]
+                        dst_root.attrs["number_fovs"] = total_fovs
+                        dst_root.attrs["fov_names"] = new_fov_names
+                        new_fov_metadata["number_fovs"] = total_fovs
+                        new_fov_metadata["fov_names"] = new_fov_names
+                    elif recomputed_fov_metadata is not None:
+                        total_fovs = int(recomputed_fov_metadata.get("number_fovs", 0))
+                        if total_fovs > 0:
+                            grid_cols = int(recomputed_fov_metadata.get("fov_grid_cols", 0) or 0)
+                            fov_names = _generate_fov_names(total_fovs, grid_cols)
+                            dst_root.attrs["number_fovs"] = total_fovs
+                            dst_root.attrs["fov_names"] = fov_names
+                            new_fov_metadata["number_fovs"] = total_fovs
+                            new_fov_metadata["fov_names"] = fov_names
+                    elif len(rebuilt_levels) > 0:
+                        level0_tiles = rebuilt_levels[0][1]  # (level_name, level_tiles) -> level_tiles
+                        if len(level0_tiles) > 0:
+                            level0_coords = [tuple(map(int, tile_key.split(","))) for tile_key, _, _ in level0_tiles]
+                            max_x = max((c[0] for c in level0_coords), default=0)
+                            max_y = max((c[1] for c in level0_coords), default=0)
+                            total_fovs = (max_y + 1) * (max_x + 1)
+                            fov_names = _generate_fov_names(int(total_fovs), int(max_x + 1))
+                            dst_root.attrs["number_fovs"] = int(total_fovs)
+                            dst_root.attrs["fov_names"] = fov_names
+                            new_fov_metadata["number_fovs"] = int(total_fovs)
+                            new_fov_metadata["fov_names"] = fov_names
+                    
 
                     # FOV compaction now done pre-tiling (see ~line 1225) for better reliability.
 
@@ -1565,9 +1902,9 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 if arr_name in density_gene:
                                     del density_gene[arr_name]
 
-                            density_gene.create_dataset("data", shape=data.shape, dtype=data.dtype, data=data, chunks=(min(max(1, data.shape[0]), 2_000_000),))
-                            density_gene.create_dataset("indices", shape=indices.shape, dtype=indices.dtype, data=indices, chunks=(min(max(1, indices.shape[0]), 2_000_000),))
-                            density_gene.create_dataset("indptr", shape=indptr.shape, dtype=indptr.dtype, data=indptr, chunks=(indptr.shape[0],))
+                            _zarr_create_dataset(zarr, density_gene, "data", shape=data.shape, dtype=data.dtype, data=data, chunks=(min(max(1, data.shape[0]), 2_000_000),))
+                            _zarr_create_dataset(zarr, density_gene, "indices", shape=indices.shape, dtype=indices.dtype, data=indices, chunks=(min(max(1, indices.shape[0]), 2_000_000),))
+                            _zarr_create_dataset(zarr, density_gene, "indptr", shape=indptr.shape, dtype=indptr.dtype, data=indptr, chunks=(indptr.shape[0],))
 
                             density_gene.attrs["rows"] = int(rows)
                             density_gene.attrs["cols"] = int(cols)
@@ -1591,22 +1928,72 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                 # Rebuild transcript grids after filtering so tile keys and density
                 # align with the written transcript coordinates at every level.
                 if transcript_table is not None or transcript_ids is not None:
-                    store_type_name = type(getattr(dst_root, "store", None)).__name__.lower()
-                    if "zipstore" in store_type_name:
-                        logger.debug(
-                            "Skipping transcript grids/density rebuild on ZipStore output to avoid unsupported delete operations."
-                        )
-                    else:
-                        try:
-                            _rebuild_transcript_grids_and_density(dst_root)
-                        except Exception:
-                            logger.debug("Failed to rebuild transcript grids and density", exc_info=True)
+                    try:
+                        _rebuild_transcript_grids_and_density(dst_root)
+                    except Exception:
+                        logger.debug("Failed to rebuild transcript grids and density", exc_info=True)
+
+
+                # Re-apply FOV metadata after rebuild.
+                # Prefer transcript-derived recalculated FOV geometry when available.
+                try:
+                    if recomputed_fov_metadata is not None and int(recomputed_fov_metadata.get("number_fovs", 0)) > 0:
+                        total_fovs = int(recomputed_fov_metadata["number_fovs"])
+                        grid_cols = int(recomputed_fov_metadata.get("fov_grid_cols", 0) or 0)
+                        dst_root.attrs["number_fovs"] = total_fovs
+                        dst_root.attrs["fov_names"] = _generate_fov_names(total_fovs, grid_cols)
+                    elif "grids" in dst_root and "0" in dst_root["grids"]:
+                        level0_tiles = sorted(dst_root["grids"]["0"].keys())
+                        if len(level0_tiles) > 0:
+                            # Parse tile keys "x,y" format
+                            coords = [tuple(map(int, tile_key.split(","))) for tile_key in level0_tiles]
+                            max_x = max((c[0] for c in coords), default=0)
+                            max_y = max((c[1] for c in coords), default=0)
+                            total_fovs = (max_y + 1) * (max_x + 1)
+                            dst_root.attrs["number_fovs"] = int(total_fovs)
+                            fov_names = _generate_fov_names(int(total_fovs), int(max_x + 1))
+                            dst_root.attrs["fov_names"] = fov_names
+                except Exception:
+                    logger.debug("Failed to re-apply FOV metadata after rebuild", exc_info=True)
+
+                # Ensure all required root attributes for Xenium Explorer are present
+                try:
+                    # Set default experiment metadata if not present
+                    if "experiment_name" not in dst_root.attrs:
+                        dst_root.attrs["experiment_name"] = "RnaDataset"
+                    if "major_version" not in dst_root.attrs:
+                        dst_root.attrs["major_version"] = 4
+                    if "minor_version" not in dst_root.attrs:
+                        dst_root.attrs["minor_version"] = 1
+                    if "name" not in dst_root.attrs:
+                        dst_root.attrs["name"] = "RnaDataset"
+                    if "dataset_uuid" not in dst_root.attrs and "dataset_uuid" in src_root.attrs:
+                        dst_root.attrs["dataset_uuid"] = src_root.attrs["dataset_uuid"]
+                    # Ensure coordinate_space is set properly
+                    if "coordinate_space" not in dst_root.attrs:
+                        dst_root.attrs["coordinate_space"] = "refined-final_global_micron"
+                except Exception:
+                    logger.debug("Failed to set experiment metadata", exc_info=True)
+
+                # Enforce transcript id/uuid schema invariants in output transcripts zarr.
+                if output_path.name.lower() == "transcripts.zarr.zip":
+                    schema_summary = validate_transcripts_id_uuid_schema(dst_root)
+                    logger.debug(
+                        "[filter_zarr_zip_preserve_schema] validated id/uuid schema: rows=%d tiles=%d max_id1=%d",
+                        int(schema_summary.get("checked_rows", 0)),
+                        int(schema_summary.get("checked_tiles", 0)),
+                        int(schema_summary.get("max_id1", -1)),
+                    )
 
             if dst_store is not None:
                 try:
                     dst_store.close()
                 except Exception:
                     logger.debug("Failed to close destination zarr ZipStore", exc_info=True)
+
+            # ZipStore can contain duplicate member names after repeated metadata
+            # rewrites; repack to a canonical ZIP with unique names.
+            _dedupe_zip_entries_keep_last(tmp_output_zip)
 
             if output_path.exists():
                 output_path.unlink()
@@ -1843,22 +2230,11 @@ def get_cell_feature_matrix_files(group_dir: Path) -> dict[str, Path | None]:
 
 
 def read_mtx_file(path: Path) -> tuple[list[list[int]], tuple[int, int, int]]:
-    """Read Matrix Market format file (MTX).
-    
-    MTX is the 10X Genomics sparse matrix format:
-    - Header: %%MatrixMarket matrix coordinate integer general
-    - Metadata: %metadata_json: {...}
-    - Dimensions: num_features num_barcodes num_values
-    - Data: row col value (1-indexed, where row=feature, col=barcode)
-    
-    Args:
-        path: Path to .mtx or .mtx.gz file
-    
-    Returns:
-        (data_rows, dimensions) where:
-        - data_rows: list of [row, col, value] (1-indexed)
-        - dimensions: (num_features, num_barcodes, num_values)
-    """
+    # Expected MTX layout:
+    # - Header: %%MatrixMarket matrix coordinate integer general
+    # - Metadata: %metadata_json: {...}
+    # - Dimensions: num_features num_barcodes num_values
+    # - Data rows: row col value (1-indexed)
     open_fn = gzip.open if str(path).endswith(".gz") else open
     
     with open_fn(path, "rt") as f:
@@ -2016,7 +2392,9 @@ def _rezip_zarr(src_path: Path, dst_path: Path) -> None:
     """Re-zip a Zarr directory into an archive using ZIP_STORED.
 
     Zarr chunks are already Blosc-compressed; using ZIP_STORED avoids a
-    second compression pass and is much faster.
+    second compression pass and is much faster. After rezipping, deduplicates
+    any duplicate entries (e.g., .zattrs) that may have accumulated during
+    zarr group metadata rewrites.
     """
     with zipfile.ZipFile(dst_path, "w", zipfile.ZIP_STORED) as zf:
         for fpath in src_path.rglob("*"):
@@ -2032,6 +2410,68 @@ def _rezip_zarr(src_path: Path, dst_path: Path) -> None:
                     continue
 
             zf.write(fpath, arcname=rel)
+    
+    # Deduplicate any .zattrs files or other duplicate entries in the zip
+    _dedupe_zip_entries_keep_last(dst_path)
+
+
+def _dedupe_zip_entries_keep_last(zip_path: Path) -> None:
+    """Rewrite a ZIP file so each member name appears once (last entry wins).
+
+    ZipStore can append duplicate members (for example repeated `.zattrs` writes).
+    Some unzip tools materialize these as many sibling files, which breaks
+    downstream consumers. This repack step keeps only the last version per name.
+    """
+    with zipfile.ZipFile(zip_path, "r") as zin:
+        infos = zin.infolist()
+        if not infos:
+            return
+
+        last_index_by_name: dict[str, int] = {}
+        for idx, info in enumerate(infos):
+            last_index_by_name[info.filename] = idx
+
+        # Fast path: no duplicates.
+        if len(last_index_by_name) == len(infos):
+            return
+
+        ordered_unique_infos = [
+            info
+            for idx, info in enumerate(infos)
+            if last_index_by_name.get(info.filename) == idx
+        ]
+
+        with tempfile.NamedTemporaryFile(
+            dir=zip_path.parent,
+            prefix="dedupe_zip_",
+            suffix=".zip",
+            delete=False,
+        ) as tmpf:
+            tmp_zip = Path(tmpf.name)
+
+        try:
+            with zipfile.ZipFile(tmp_zip, "w") as zout:
+                for info in ordered_unique_infos:
+                    data = zin.read(info.filename)
+                    new_info = zipfile.ZipInfo(filename=info.filename, date_time=info.date_time)
+                    new_info.compress_type = info.compress_type
+                    new_info.comment = info.comment
+                    new_info.create_system = info.create_system
+                    new_info.external_attr = info.external_attr
+                    new_info.extra = info.extra
+                    new_info.flag_bits = info.flag_bits
+                    new_info.internal_attr = info.internal_attr
+                    new_info.volume = info.volume
+                    zout.writestr(new_info, data)
+
+            zip_path.unlink(missing_ok=True)
+            shutil.move(str(tmp_zip), str(zip_path))
+        finally:
+            if tmp_zip.exists():
+                try:
+                    tmp_zip.unlink()
+                except Exception:
+                    logger.debug("Failed to clean up temporary dedupe zip %s", tmp_zip, exc_info=True)
 
 
 def _open_zarr_zip_store(path: Path, mode: str = "w"):
@@ -2771,6 +3211,8 @@ def build_tabular_zarr_from_filtered_output(
                 )
         finally:
             store.close()
+        # Deduplicate any .zattrs files at the top level that ZipStore may have created
+        _dedupe_zip_entries_keep_last(output_zarr_zip_path)
 
     return len(df)
 
@@ -2858,6 +3300,8 @@ def build_analysis_zarr_from_analysis_dir(
                     written += 1
         finally:
             store.close()
+        # Deduplicate any .zattrs files at the top level that ZipStore may have created
+        _dedupe_zip_entries_keep_last(output_zarr_zip_path)
 
     return written
 

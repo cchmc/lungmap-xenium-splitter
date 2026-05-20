@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import shutil
 import time
 from datetime import datetime, timezone
@@ -27,6 +28,7 @@ from xenium_splitter.io_utils import (
     filter_cell_feature_matrix,
     filter_cell_feature_matrix_h5,
     filter_zarr_zip_by_row_indices_preserve_schema,
+    get_fov_dimensions_px_for_sw_version,
     filter_table_by_entity_ids,
     find_boundary_files,
     get_cell_feature_matrix_files,
@@ -34,6 +36,7 @@ from xenium_splitter.io_utils import (
     is_cell_feature_matrix_group,
     is_cell_feature_matrix_h5,
     iter_input_files,
+    load_instrument_sw_version_from_experiment,
     load_pixel_size_from_experiment,
     rebase_table_coordinates_to_region_crop,
     read_table,
@@ -52,6 +55,64 @@ from xenium_splitter.models import FileMetric, RunMetrics, SplitConfig
 from xenium_splitter.recalculate_diffexp import recalculate_diffexp_for_region
 
 logger = logging.getLogger(__name__)
+
+
+def _collect_fov_layout_summary(
+    config: SplitConfig,
+    regions,
+) -> dict[str, object] | None:
+    """Compute FOV dimensions and potential FOV counts for each region.
+
+    Potential counts are based on region crop size in pixels and FOV stride,
+    where stride = FOV dimension - overlap (128 px).
+    """
+    pixel_size_um = config.pixel_size_um
+    if pixel_size_um is None or pixel_size_um <= 0:
+        return None
+
+    sw_version = load_instrument_sw_version_from_experiment(config.input_dir)
+    fov_rows_px, fov_cols_px = get_fov_dimensions_px_for_sw_version(sw_version)
+    overlap_px = 128
+    x_stride_px = max(1, int(fov_cols_px) - int(overlap_px))
+    y_stride_px = max(1, int(fov_rows_px) - int(overlap_px))
+
+    per_region: list[dict[str, int | str]] = []
+    max_x = 0
+    max_y = 0
+    for region in regions:
+        min_x, min_y, max_x_um, max_y_um = region.bounds
+        width_um = max(0.0, float(max_x_um) - float(min_x))
+        height_um = max(0.0, float(max_y_um) - float(min_y))
+
+        width_px = int(math.ceil(width_um / float(pixel_size_um)))
+        height_px = int(math.ceil(height_um / float(pixel_size_um)))
+        potential_fov_x = max(1, int(math.ceil(width_px / float(x_stride_px)))) if width_px > 0 else 1
+        potential_fov_y = max(1, int(math.ceil(height_px / float(y_stride_px)))) if height_px > 0 else 1
+
+        max_x = max(max_x, potential_fov_x)
+        max_y = max(max_y, potential_fov_y)
+        per_region.append(
+            {
+                "region_id": str(region.region_id),
+                "width_px": int(width_px),
+                "height_px": int(height_px),
+                "potential_fov_x": int(potential_fov_x),
+                "potential_fov_y": int(potential_fov_y),
+            }
+        )
+
+    return {
+        "instrument_sw_version": sw_version,
+        "pixel_size_um": float(pixel_size_um),
+        "fov_rows_px": int(fov_rows_px),
+        "fov_cols_px": int(fov_cols_px),
+        "fov_overlap_px": int(overlap_px),
+        "fov_stride_rows_px": int(y_stride_px),
+        "fov_stride_cols_px": int(x_stride_px),
+        "max_potential_fov_x": int(max_x),
+        "max_potential_fov_y": int(max_y),
+        "per_region": per_region,
+    }
 
 
 def _drop_negative_rebased_transcripts(
@@ -393,6 +454,12 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
 
     regions = _time_stage("load_lasso_regions", lambda: load_lasso_regions(config.lasso_file))
     metrics = RunMetrics(region_count=len(regions))
+    fov_layout_summary = _time_stage(
+        "compute_fov_layout_summary",
+        lambda: _collect_fov_layout_summary(config, regions),
+    )
+    if isinstance(fov_layout_summary, dict) and fov_layout_summary:
+        metrics.extra["fov_layout_summary"] = fov_layout_summary
     
     # Pre-extract entity IDs from boundary files for each region
     boundary_files = _time_stage("find_boundary_files", lambda: find_boundary_files(config.input_dir))
@@ -816,6 +883,12 @@ def _split_file_group(
                 subset = per_region_subsets[region.region_id]
                 dest = config.output_dir / f"region_{region.region_id}" / rel
                 if file_name_lower.endswith(".zarr.zip"):
+                    if file_name_lower == "transcripts.zarr.zip":
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(
+                            fp,
+                            dest.with_name("transcripts_original.zarr.zip"),
+                        )
                     transcript_id_values = None
                     if file_name_lower == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
                         transcript_id_values = subset["transcript_id"].to_numpy()
@@ -1680,6 +1753,13 @@ def _split_zarr(
         transcript_id_values = None
         if lower_name == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
             transcript_id_values = subset["transcript_id"].to_numpy()
+
+        if lower_name == "transcripts.zarr.zip":
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(
+                file_path,
+                destination.with_name("transcripts_original.zarr.zip"),
+            )
 
         # Rebase coordinate-bearing zarr outputs to the crop origin.
         if lower_name in {"cells.zarr.zip", "transcripts.zarr.zip"}:
