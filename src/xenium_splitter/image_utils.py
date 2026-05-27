@@ -29,7 +29,7 @@ from typing import Any
 
 import numpy as np
 import tifffile
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from shapely import affinity
 from shapely.geometry import Polygon
 
@@ -475,3 +475,148 @@ def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
     arr = arr.astype(np.float32)
     arr = np.clip(arr, 0, 255)
     return arr.astype(np.uint8)
+
+
+def _resize_for_overlay(
+    image: np.ndarray,
+    *,
+    max_dimension_px: int,
+) -> tuple[np.ndarray, float]:
+    if max_dimension_px <= 0:
+        raise ValueError("max_dimension_px must be > 0")
+
+    height_px, width_px = image.shape[:2]
+    longest_edge = max(height_px, width_px)
+    if longest_edge <= max_dimension_px:
+        return image, 1.0
+
+    scale = float(longest_edge) / float(max_dimension_px)
+    new_width = max(1, int(round(width_px / scale)))
+    new_height = max(1, int(round(height_px / scale)))
+    resized = Image.fromarray(image).resize((new_width, new_height), Image.Resampling.BILINEAR)
+    return np.asarray(resized), scale
+
+
+def render_grid_overlay_image(
+    image: np.ndarray,
+    *,
+    level_name: str,
+    tile_size_um: float,
+    pixel_size_um: float | None,
+    fov_stride_um: tuple[float, float] | None = None,
+    fov_size_um: tuple[float, float] | None = None,
+    max_dimension_px: int = 2048,
+) -> tuple[np.ndarray, float]:
+    """Render a grid overlay image with line coordinates and tile labels.
+
+    The input image is expected to already be crop-local for a region, so grid
+    line coordinates are shown in the same rebased micrometer space used by the
+    transcript outputs.
+    """
+    if pixel_size_um is None or pixel_size_um <= 0:
+        raise ValueError("pixel_size_um must be > 0 for grid overlays")
+    if tile_size_um <= 0:
+        raise ValueError("tile_size_um must be > 0 for grid overlays")
+
+    base = _coerce_for_pillow(image)
+    if base.ndim == 2:
+        rgb = np.stack([base, base, base], axis=-1)
+    elif base.ndim == 3 and base.shape[2] == 4:
+        rgb = base[:, :, :3]
+    elif base.ndim == 3 and base.shape[2] == 3:
+        rgb = base
+    else:
+        raise ValueError(f"Unsupported image shape for grid overlay: {image.shape}")
+
+    rgb, downsample_scale = _resize_for_overlay(rgb, max_dimension_px=max_dimension_px)
+    overlay_pixel_size_um = float(pixel_size_um) * downsample_scale
+
+    canvas = Image.fromarray(rgb)
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default()
+
+    height_px, width_px = rgb.shape[:2]
+    width_um = width_px * overlay_pixel_size_um
+    height_um = height_px * overlay_pixel_size_um
+
+    # Title block for quick inspection.
+    draw.rectangle((6, 6, 320, 34), fill=(0, 0, 0))
+    draw.text((10, 10), f"Level {level_name} grid {tile_size_um:.0f} um", fill=(255, 255, 255), font=font)
+
+    if fov_stride_um is not None:
+        stride_x_um, stride_y_um = fov_stride_um
+        if stride_x_um > 0:
+            x_positions_um = np.arange(0.0, width_um + stride_x_um, stride_x_um, dtype=np.float64)
+            for x_um in x_positions_um:
+                x_px = int(round(x_um / overlay_pixel_size_um))
+                if x_px < 0 or x_px >= width_px:
+                    continue
+                draw.line((x_px, 0, x_px, height_px - 1), fill=(255, 0, 0), width=1)
+        if stride_y_um > 0:
+            y_positions_um = np.arange(0.0, height_um + stride_y_um, stride_y_um, dtype=np.float64)
+            for y_um in y_positions_um:
+                y_px = int(round(y_um / overlay_pixel_size_um))
+                if y_px < 0 or y_px >= height_px:
+                    continue
+                draw.line((0, y_px, width_px - 1, y_px), fill=(255, 0, 0), width=1)
+
+    if fov_stride_um is not None and fov_size_um is not None:
+        stride_x_um, stride_y_um = fov_stride_um
+        size_x_um, size_y_um = fov_size_um
+        if stride_x_um > 0 and size_x_um > 0:
+            x_end_positions_um = np.arange(size_x_um, width_um + size_x_um, stride_x_um, dtype=np.float64)
+            for x_um in x_end_positions_um:
+                x_px = int(round(x_um / overlay_pixel_size_um))
+                if x_px < 0 or x_px >= width_px:
+                    continue
+                draw.line((x_px, 0, x_px, height_px - 1), fill=(255, 96, 96), width=1)
+        if stride_y_um > 0 and size_y_um > 0:
+            y_end_positions_um = np.arange(size_y_um, height_um + size_y_um, stride_y_um, dtype=np.float64)
+            for y_um in y_end_positions_um:
+                y_px = int(round(y_um / overlay_pixel_size_um))
+                if y_px < 0 or y_px >= height_px:
+                    continue
+                draw.line((0, y_px, width_px - 1, y_px), fill=(255, 96, 96), width=1)
+
+    x_positions_um = np.arange(0.0, width_um + tile_size_um, tile_size_um, dtype=np.float64)
+    y_positions_um = np.arange(0.0, height_um + tile_size_um, tile_size_um, dtype=np.float64)
+
+    for x_um in x_positions_um:
+        x_px = int(round(x_um / overlay_pixel_size_um))
+        if x_px < 0 or x_px >= width_px:
+            continue
+        draw.line((x_px, 0, x_px, height_px - 1), fill=(0, 255, 0), width=1)
+        label = f"x={x_um:.0f}"
+        text_y = 40 if (x_px // 40) % 2 == 0 else 56
+        text_x = min(max(2, x_px + 2), max(2, width_px - 50))
+        draw.rectangle((text_x - 1, text_y - 1, min(width_px - 1, text_x + 42), text_y + 10), fill=(0, 0, 0))
+        draw.text((text_x, text_y), label, fill=(180, 255, 180), font=font)
+
+    for y_um in y_positions_um:
+        y_px = int(round(y_um / overlay_pixel_size_um))
+        if y_px < 0 or y_px >= height_px:
+            continue
+        draw.line((0, y_px, width_px - 1, y_px), fill=(0, 255, 0), width=1)
+        label = f"y={y_um:.0f}"
+        text_y = min(max(2, y_px + 2), max(2, height_px - 12))
+        draw.rectangle((6, text_y - 1, 52, min(height_px - 1, text_y + 10)), fill=(0, 0, 0))
+        draw.text((8, text_y), label, fill=(180, 255, 180), font=font)
+
+    tile_cols = max(1, int(np.ceil(width_um / tile_size_um)))
+    tile_rows = max(1, int(np.ceil(height_um / tile_size_um)))
+    for ty in range(tile_rows):
+        for tx in range(tile_cols):
+            cx_um = (tx + 0.5) * tile_size_um
+            cy_um = (ty + 0.5) * tile_size_um
+            cx_px = int(round(cx_um / overlay_pixel_size_um))
+            cy_px = int(round(cy_um / overlay_pixel_size_um))
+            if cx_px < 0 or cx_px >= width_px or cy_px < 0 or cy_px >= height_px:
+                continue
+            label = f"{tx},{ty}"
+            text_w = 7 * len(label)
+            left = min(max(0, cx_px - text_w // 2), max(0, width_px - text_w - 4))
+            top = min(max(0, cy_px - 6), max(0, height_px - 14))
+            draw.rectangle((left - 2, top - 2, min(width_px - 1, left + text_w + 2), min(height_px - 1, top + 10)), fill=(0, 0, 0))
+            draw.text((left, top), label, fill=(180, 255, 180), font=font)
+
+    return np.asarray(canvas), overlay_pixel_size_um

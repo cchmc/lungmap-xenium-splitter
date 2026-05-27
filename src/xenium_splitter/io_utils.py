@@ -1555,19 +1555,31 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             return None
                         xx = loc[:, 0].astype(np.float64, copy=False)
                         yy = loc[:, 1].astype(np.float64, copy=False)
+                        fov_xx = xx
+                        fov_yy = yy
+                        if origin_xy is not None:
+                            x0, y0 = origin_xy
+                            fov_xx = xx - float(x0)
+                            fov_yy = yy - float(y0)
 
                         if "id" in prepared:
                             recomputed_fov_series, fov_meta = calculate_fov_layout_and_assignments(
-                                xx,
-                                yy,
+                                fov_xx,
+                                fov_yy,
                                 pixel_size_um=float(effective_pixel_size_um),
                                 fov_rows_px=int(fov_rows_px),
                                 fov_cols_px=int(fov_cols_px),
                                 overlap_px=int(fov_overlap_px),
                             )
-                            recomputed_fov_metadata = {
+                            candidate_fov_metadata = {
                                 str(k): int(v) for k, v in fov_meta.items()
                             }
+                            if (
+                                recomputed_fov_metadata is None
+                                or int(candidate_fov_metadata.get("number_fovs", 0))
+                                >= int(recomputed_fov_metadata.get("number_fovs", 0))
+                            ):
+                                recomputed_fov_metadata = candidate_fov_metadata
                             new_fov = recomputed_fov_series.to_numpy(dtype=np.uint32, copy=False)
 
                             new_low = np.zeros(new_fov.shape[0], dtype=np.uint32)
@@ -1689,6 +1701,18 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                     loc[:, 0] -= x0
                                     loc[:, 1] -= y0
                                     tile_arrays["location"] = loc
+
+                                loc = tile_arrays.get("location")
+                                if loc is not None and getattr(loc, "ndim", 0) == 2 and loc.shape[0] > 1:
+                                    if loc.shape[1] >= 3:
+                                        order = np.lexsort((loc[:, 2], loc[:, 0], loc[:, 1]))
+                                    else:
+                                        order = np.lexsort((loc[:, 0], loc[:, 1]))
+                                    if not np.array_equal(order, np.arange(loc.shape[0])):
+                                        tile_arrays = {
+                                            name: arr[order, ...]
+                                            for name, arr in tile_arrays.items()
+                                        }
 
                                 level_tiles.append((tile_key, tile_arrays, level_meta))
                                 level_keys.append(tile_key)
@@ -1834,16 +1858,14 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             tile_group = level_group.require_group(tile_key)
                             for arr_name, arr_data in tile_arrays.items():
                                 m = meta.get(arr_name, {})
-                                chunks = m.get("chunks")
                                 create_kwargs = {
                                     "shape": arr_data.shape,
                                     "dtype": arr_data.dtype,
                                     "data": arr_data,
                                 }
-                                if chunks is not None and len(chunks) == len(arr_data.shape):
-                                    create_kwargs["chunks"] = tuple(
-                                        max(1, min(int(c), int(s)) if int(s) > 0 else 1)
-                                        for c, s in zip(chunks, arr_data.shape)
+                                if getattr(arr_data, "ndim", 0) >= 1:
+                                    create_kwargs["chunks"] = (int(arr_data.shape[0]),) + tuple(
+                                        int(s) for s in arr_data.shape[1:]
                                     )
                                 compressors = m.get("compressors")
                                 compressor = m.get("compressor")
@@ -2112,14 +2134,9 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
 
 
                 # Re-apply FOV metadata after rebuild.
-                # Prefer transcript-derived recalculated FOV geometry when available.
+                # Prefer actual written level-0 transcript ids when available.
                 try:
-                    if recomputed_fov_metadata is not None and int(recomputed_fov_metadata.get("number_fovs", 0)) > 0:
-                        total_fovs = int(recomputed_fov_metadata["number_fovs"])
-                        grid_cols = int(recomputed_fov_metadata.get("fov_grid_cols", 0) or 0)
-                        dst_root.attrs["number_fovs"] = total_fovs
-                        dst_root.attrs["fov_names"] = _generate_fov_names(total_fovs, grid_cols)
-                    elif "grids" in dst_root and "0" in dst_root["grids"]:
+                    if "grids" in dst_root and "0" in dst_root["grids"]:
                         level0_tiles = sorted(dst_root["grids"]["0"].keys())
                         if len(level0_tiles) > 0:
                             used_fov_indices: set[int] = set()
@@ -2139,6 +2156,11 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 total_fovs = int(max(used_fov_indices) + 1)
                                 dst_root.attrs["number_fovs"] = int(total_fovs)
                                 dst_root.attrs["fov_names"] = _generate_fov_names(int(total_fovs))
+                    elif recomputed_fov_metadata is not None and int(recomputed_fov_metadata.get("number_fovs", 0)) > 0:
+                        total_fovs = int(recomputed_fov_metadata["number_fovs"])
+                        grid_cols = int(recomputed_fov_metadata.get("fov_grid_cols", 0) or 0)
+                        dst_root.attrs["number_fovs"] = total_fovs
+                        dst_root.attrs["fov_names"] = _generate_fov_names(total_fovs, grid_cols)
                 except Exception:
                     logger.debug("Failed to re-apply FOV metadata after rebuild", exc_info=True)
 

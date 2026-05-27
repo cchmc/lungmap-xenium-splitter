@@ -13,6 +13,7 @@ from xenium_splitter.image_utils import (
     mask_and_crop_region,
     read_masked_cropped_region,
     read_image,
+    render_grid_overlay_image,
     save_image_like,
     supports_windowed_region_read,
     write_array_as_ome_tiff,
@@ -552,6 +553,7 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     if config.he_image and not config.skip_images:
         _time_stage("split_external_he_image", lambda: _split_external_he_image(config, regions, metrics))
 
+    _time_stage("write_morphology_grid_overlays", lambda: _write_morphology_grid_overlays(config, regions, metrics))
     _time_stage("recalculate_diffexp", lambda: _recalculate_diffexp_for_regions(config, regions, metrics))
     _time_stage("update_region_metadata", lambda: _update_region_metadata_outputs(config, regions, metrics))
 
@@ -1407,6 +1409,124 @@ def _split_external_he_image(config: SplitConfig, regions, metrics: RunMetrics) 
             detail="External H&E image split by regions",
         )
     )
+
+
+def _existing_region_morphology_mip(region_dir: Path) -> Path | None:
+    for file_name in ("morphology_mip.ome.tif", "morphology_mip.ome.tiff"):
+        candidate = region_dir / file_name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _read_transcript_grid_spec(transcripts_zarr_zip: Path) -> tuple[list[str], float] | None:
+    try:
+        import tempfile
+        import zipfile
+        import zarr
+    except ImportError:
+        logger.warning("zarr not available; cannot build morphology grid overlays")
+        return None
+
+    if not transcripts_zarr_zip.is_file():
+        return None
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="grid_overlay_zarr_") as tmpdir:
+            with zipfile.ZipFile(transcripts_zarr_zip, "r") as zf:
+                zf.extractall(tmpdir)
+            root = zarr.open_group(tmpdir, mode="r")
+            if "grids" not in root:
+                return None
+            grids = root["grids"]
+            level_names = sorted(
+                (str(name) for name in grids.keys()),
+                key=lambda name: int(name) if str(name).isdigit() else str(name),
+            )
+            if not level_names:
+                return None
+
+            base_grid_size = 250.0
+            grid_size = grids.attrs.get("grid_size", [base_grid_size])
+            if isinstance(grid_size, (list, tuple)) and grid_size:
+                base_grid_size = float(grid_size[0])
+            elif grid_size is not None:
+                base_grid_size = float(grid_size)
+
+            return level_names, base_grid_size
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to read grid spec from %s: %s", transcripts_zarr_zip, exc)
+        return None
+
+
+def _write_morphology_grid_overlays(
+    config: SplitConfig,
+    regions,
+    metrics: RunMetrics,
+) -> None:
+    if config.pixel_size_um is None or config.pixel_size_um <= 0:
+        logger.info("Skipping morphology grid overlays: pixel_size_um unavailable")
+        return
+
+    sw_version = load_instrument_sw_version_from_experiment(config.input_dir)
+    fov_rows_px, fov_cols_px = get_fov_dimensions_px_for_sw_version(sw_version)
+    fov_overlap_px = 128
+    fov_stride_um = (
+        max(1, int(fov_cols_px) - int(fov_overlap_px)) * float(config.pixel_size_um),
+        max(1, int(fov_rows_px) - int(fov_overlap_px)) * float(config.pixel_size_um),
+    )
+    fov_size_um = (
+        float(fov_cols_px) * float(config.pixel_size_um),
+        float(fov_rows_px) * float(config.pixel_size_um),
+    )
+
+    for region in regions:
+        region_dir = config.output_dir / f"region_{region.region_id}"
+        morphology_path = _existing_region_morphology_mip(region_dir)
+        transcripts_path = region_dir / "transcripts.zarr.zip"
+
+        if morphology_path is None:
+            logger.info(
+                "Skipping morphology grid overlays for region %s: no existing morphology_mip.ome.tif output",
+                region.region_id,
+            )
+            continue
+
+        grid_spec = _read_transcript_grid_spec(transcripts_path)
+        if grid_spec is None:
+            logger.info(
+                "Skipping morphology grid overlays for region %s: transcript grid metadata unavailable",
+                region.region_id,
+            )
+            continue
+
+        level_names, base_grid_size_um = grid_spec
+        image = read_image(morphology_path, squash_layers=config.squash_layers)
+        overlay_dir = region_dir / "grid_overlays"
+        overlay_dir.mkdir(parents=True, exist_ok=True)
+
+        for level_name in level_names:
+            level_index = int(level_name) if str(level_name).isdigit() else 0
+            tile_size_um = float(base_grid_size_um) * (2.0 ** float(level_index))
+            overlay, overlay_pixel_size_um = render_grid_overlay_image(
+                image,
+                level_name=str(level_name),
+                tile_size_um=tile_size_um,
+                pixel_size_um=config.pixel_size_um,
+                fov_stride_um=fov_stride_um,
+                fov_size_um=fov_size_um,
+            )
+            output_path = overlay_dir / f"morphology_mip_grid_overlay_level_{level_name}.ome.tif"
+            write_array_as_ome_tiff(overlay, output_path, pixel_size_um=overlay_pixel_size_um)
+
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(morphology_path.relative_to(config.output_dir)),
+                file_type="image_overlay",
+                status="processed",
+                detail=f"Wrote morphology grid overlays for levels: {', '.join(level_names)}",
+            )
+        )
 
 
 def _infer_entity_type_from_filename(file_name: str) -> str | None:
