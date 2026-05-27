@@ -204,6 +204,7 @@ def validate_transcripts_id_uuid_schema(root) -> dict[str, int | bool]:
     checked_tiles = 0
     max_id1 = -1
     canonical_pairs: list[np.ndarray] = []
+    used_fov_indices: set[int] = set()
 
     for tile_key in level0.keys():
         tile = level0[tile_key]
@@ -251,6 +252,7 @@ def validate_transcripts_id_uuid_schema(root) -> dict[str, int | bool]:
             )
 
         canonical_pairs.append((id1 << np.uint64(32)) | id0)
+        used_fov_indices.update(int(v) for v in np.unique(id1).tolist())
 
         tile_max_id1 = int(np.max(id1))
         max_id1 = max(max_id1, tile_max_id1)
@@ -261,6 +263,9 @@ def validate_transcripts_id_uuid_schema(root) -> dict[str, int | bool]:
         canonical_all = np.concatenate(canonical_pairs)
         if np.unique(canonical_all).size != canonical_all.size:
             raise ValueError("Duplicate (fov_index, transcript_id) pairs detected in grids/0")
+
+    # Note: FOV indices may be sparse in input files. Output generation applies
+    # compatibility remapping to densify indices for loader compatibility.
 
     number_fovs = root.attrs.get("number_fovs")
     if number_fovs is not None:
@@ -571,6 +576,24 @@ def load_instrument_sw_version_from_experiment(input_dir: Path) -> str | None:
         return None
 
 
+def resolve_experiment_dir_for_path(start_path: Path, max_up: int = 6) -> Path:
+    """Find the nearest directory containing experiment.xenium.
+
+    Searches start_path (or its parent if start_path is a file) and then walks
+    up parent directories up to max_up levels. Returns the first match, or the
+    starting directory when no experiment.xenium is found.
+    """
+    current = start_path if start_path.is_dir() else start_path.parent
+    checked = 0
+    while True:
+        if (current / "experiment.xenium").exists():
+            return current
+        if checked >= max_up or current.parent == current:
+            return start_path if start_path.is_dir() else start_path.parent
+        current = current.parent
+        checked += 1
+
+
 def get_fov_dimensions_px_for_sw_version(instrument_sw_version: str | None) -> tuple[int, int]:
     """Return (rows_px, cols_px) for Xenium FOV based on instrument software version.
 
@@ -621,6 +644,17 @@ def calculate_fov_layout_and_assignments(
 
     fov_x = x_px // step_x
     fov_y = y_px // step_y
+
+    # Overlap tie-break: if a point falls into an overlap strip, assign it to
+    # the first FOV (top-left / lower row-major index) among valid candidates.
+    overlap_x = np.int64(max(0, int(overlap_px)))
+    overlap_y = np.int64(max(0, int(overlap_px)))
+    local_x = x_px - (fov_x * np.int64(step_x))
+    local_y = y_px - (fov_y * np.int64(step_y))
+    choose_prev_x = (fov_x > 0) & (local_x < overlap_x)
+    choose_prev_y = (fov_y > 0) & (local_y < overlap_y)
+    fov_x = np.where(choose_prev_x, fov_x - 1, fov_x)
+    fov_y = np.where(choose_prev_y, fov_y - 1, fov_y)
 
     grid_cols = int(np.max(fov_x)) + 1 if fov_x.size > 0 else 1
     grid_rows = int(np.max(fov_y)) + 1 if fov_y.size > 0 else 1
@@ -878,7 +912,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
             transcript_ids_sorted = None
             transcript_id_mode["kind"] = None
     origin_xy = _region_crop_origin_um(rebase_region, pixel_size_um=pixel_size_um) if rebase_region else None
-    experiment_dir = zarr_zip_path.parent
+    experiment_dir = resolve_experiment_dir_for_path(zarr_zip_path)
     instrument_sw_version = load_instrument_sw_version_from_experiment(experiment_dir)
     fov_rows_px, fov_cols_px = get_fov_dimensions_px_for_sw_version(instrument_sw_version)
     fov_overlap_px = 128
@@ -1183,7 +1217,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         return
 
                     # Keep output pyramid depth aligned with the input store.
-                    level_names = source_level_names if source_level_names else existing_level_names
+                    level_names = source_level_names
                     try:
                         src_level_count = int(source_grid_attrs.get("number_levels", len(level_names)))
                         if src_level_count > 0:
@@ -1191,7 +1225,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             if all(name in level_names for name in canonical_levels):
                                 level_names = canonical_levels
                     except Exception:
-                        level_names = source_level_names if source_level_names else existing_level_names
+                        level_names = source_level_names
 
                     base_grid_size = 250.0
                     try:
@@ -1287,9 +1321,8 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         new_tid64 = None
 
                         # Build id from transcript_id where available.
-                        # Preserve original Xenium semantics:
-                        # - id[:,0] is transcript ID unique within a FOV
-                        # - id[:,1] is the original FOV index
+                        # Recompute FOV assignment from rebased coordinates and assign
+                        # per-FOV local transcript indices.
                         if "transcript_id" in table_df.columns:
                             tid = pd.to_numeric(table_df.loc[finite_loc, "transcript_id"], errors="coerce").to_numpy(dtype=np.float64)
                             tid = np.nan_to_num(tid, nan=0.0).astype(np.int64, copy=False)
@@ -1298,10 +1331,32 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             old_low = (payload & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
                             old_fov = ((payload >> np.int64(32)) & np.int64(0xFFFFFFFF)).astype(np.uint32, copy=False)
 
+                            recomputed_fov_series, fov_meta = calculate_fov_layout_and_assignments(
+                                x,
+                                y,
+                                pixel_size_um=float(effective_pixel_size_um),
+                                fov_rows_px=int(fov_rows_px),
+                                fov_cols_px=int(fov_cols_px),
+                                overlap_px=int(fov_overlap_px),
+                            )
+                            recomputed_fov_metadata = {
+                                str(k): int(v) for k, v in fov_meta.items()
+                            }
+                            new_fov = recomputed_fov_series.to_numpy(dtype=np.uint32, copy=False)
+
+                            # Renumber low-word transcript identifiers within each
+                            # reassigned FOV. Start at 1 and allow reuse across FOVs.
+                            new_low = np.zeros(new_fov.shape[0], dtype=np.uint32)
+                            for fov_val in np.unique(new_fov.astype(np.int64, copy=False)):
+                                mask_fov = new_fov == np.uint32(fov_val)
+                                count = int(np.count_nonzero(mask_fov))
+                                if count > 0:
+                                    new_low[mask_fov] = np.arange(1, count + 1, dtype=np.uint32)
+
                             new_tid64 = (
                                 one_shift_48
-                                + (old_fov.astype(np.int64, copy=False) << np.int64(32))
-                                + old_low.astype(np.int64, copy=False)
+                                + (new_fov.astype(np.int64, copy=False) << np.int64(32))
+                                + new_low.astype(np.int64, copy=False)
                             ).astype(np.int64, copy=False)
 
                             if output_path.name.lower() == "transcripts.zarr.zip":
@@ -1312,8 +1367,8 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                         "old_fov": old_fov,
                                         "old_local_id": old_low,
                                         "new_transcript_id": new_tid64,
-                                        "new_fov": old_fov,
-                                        "new_local_id": old_low,
+                                        "new_fov": new_fov,
+                                        "new_local_id": new_low,
                                     }
                                 )
                                 remap_df.to_csv(remap_path, index=False, compression="gzip")
@@ -1324,7 +1379,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 )
 
                             merged["id"] = np.stack(
-                                [old_low, old_fov],
+                                [new_low, new_fov],
                                 axis=1,
                             )
 
@@ -1471,122 +1526,144 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         merged = {name: np.concatenate(parts, axis=0) for name, parts in level_arrays.items()}
                         return merged, array_meta
 
-                    def _subsample_level_arrays(level_arrays: dict[str, np.ndarray], target_count: int) -> dict[str, np.ndarray]:
-                        """Deterministically subsample all arrays to a shared row count."""
-                        row_count = int(level_arrays["location"].shape[0])
-                        if target_count >= row_count:
-                            return level_arrays
-                        if target_count <= 0:
-                            return {name: arr[:0, ...] for name, arr in level_arrays.items()}
+                    def _prepare_level_for_rebuild(
+                        level_arrays: dict[str, np.ndarray],
+                        *,
+                        write_remap: bool = False,
+                    ) -> dict[str, np.ndarray] | None:
+                        nonlocal recomputed_fov_metadata
+                        if level_arrays is None or "location" not in level_arrays:
+                            return None
 
-                        # Use evenly spaced rows for deterministic multiscale downsampling.
-                        step = float(row_count) / float(target_count)
-                        sample_idx = np.floor(np.arange(target_count, dtype=np.float64) * step).astype(np.int64)
-                        sample_idx = np.clip(sample_idx, 0, row_count - 1)
-                        return {
-                            name: arr[sample_idx, ...]
+                        location = level_arrays["location"]
+                        if getattr(location, "ndim", 0) != 2 or location.shape[0] == 0:
+                            return None
+
+                        x = location[:, 0].astype(np.float64, copy=False)
+                        y = location[:, 1].astype(np.float64, copy=False)
+                        finite_mask = np.isfinite(x) & np.isfinite(y)
+                        if not np.any(finite_mask):
+                            return None
+
+                        prepared = {
+                            name: arr[finite_mask, ...]
                             for name, arr in level_arrays.items()
                         }
 
-                    base_level_name = "0" if "0" in grids_group else str(level_names[0])
-                    merged_base = None
-                    array_meta_base = None
-                    built_from_table = False
-                    if transcript_table is not None:
-                        merged_base, array_meta_base = _build_from_transcript_table(transcript_table, grids_group[base_level_name])
-                        built_from_table = merged_base is not None and array_meta_base is not None
-                    if merged_base is None or array_meta_base is None:
-                        merged_base, array_meta_base = _collect_level_arrays(grids_group[base_level_name])
-                    if merged_base is None or array_meta_base is None:
-                        return
+                        loc = prepared.get("location")
+                        if loc is None or loc.shape[0] == 0:
+                            return None
+                        xx = loc[:, 0].astype(np.float64, copy=False)
+                        yy = loc[:, 1].astype(np.float64, copy=False)
 
-                    if transcript_ids is not None and "id" in merged_base and not built_from_table:
-                        try:
-                            # Level-0 tiles can contain overlapping rows; collapse duplicates by id.
-                            id_arr = merged_base.get("id")
-                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[0] > 0:
-                                low = id_arr[:, 0].astype(np.int64, copy=False)
-                                kind = transcript_id_mode.get("kind")
-                                if kind == "low_plus_2pow48":
-                                    decoded = low + (np.int64(1) << np.int64(48))
-                                elif kind == "hi_and_low_plus_2pow48" and id_arr.shape[1] > 1:
-                                    hi = id_arr[:, 1].astype(np.int64, copy=False)
-                                    decoded = (np.int64(1) << np.int64(48)) + (hi << np.int64(32)) + low
-                                elif kind == "pair_u32" and id_arr.shape[1] > 1:
-                                    hi = id_arr[:, 1].astype(np.int64, copy=False)
-                                    decoded = (hi << np.int64(32)) + low
-                                else:
-                                    decoded = low
+                        if "id" in prepared:
+                            recomputed_fov_series, fov_meta = calculate_fov_layout_and_assignments(
+                                xx,
+                                yy,
+                                pixel_size_um=float(effective_pixel_size_um),
+                                fov_rows_px=int(fov_rows_px),
+                                fov_cols_px=int(fov_cols_px),
+                                overlap_px=int(fov_overlap_px),
+                            )
+                            recomputed_fov_metadata = {
+                                str(k): int(v) for k, v in fov_meta.items()
+                            }
+                            new_fov = recomputed_fov_series.to_numpy(dtype=np.uint32, copy=False)
 
-                                _, uniq_idx = np.unique(decoded, return_index=True)
-                                uniq_idx = np.sort(uniq_idx.astype(np.int64, copy=False))
-                                for arr_name in list(merged_base.keys()):
-                                    merged_base[arr_name] = merged_base[arr_name][uniq_idx, ...]
-                        except Exception:
-                            logger.debug("Base transcript dedup failed during grids rebuild", exc_info=True)
+                            new_low = np.zeros(new_fov.shape[0], dtype=np.uint32)
+                            for fov_val in np.unique(new_fov.astype(np.int64, copy=False)):
+                                mask_fov = new_fov == np.uint32(fov_val)
+                                count = int(np.count_nonzero(mask_fov))
+                                if count > 0:
+                                    new_low[mask_fov] = np.arange(1, count + 1, dtype=np.uint32)
 
-                    location = merged_base["location"]
-                    x = location[:, 0]
-                    y = location[:, 1]
-                    finite_mask = np.isfinite(x) & np.isfinite(y)
-                    if not np.any(finite_mask):
-                        return
-                    for arr_name in list(merged_base.keys()):
-                        merged_base[arr_name] = merged_base[arr_name][finite_mask, ...]
-
-                    # Hard safety guard: level-0 transcript IDs must be unique.
-                    # Any duplicates here are true collisions and are removed by keeping
-                    # the first occurrence consistently across all arrays.
-                    if "id" in merged_base:
-                        try:
-                            id_arr = merged_base.get("id")
-                            if hasattr(id_arr, "ndim") and id_arr.ndim == 2 and id_arr.shape[1] >= 2 and id_arr.shape[0] > 0:
-                                low_u64 = id_arr[:, 0].astype(np.uint64, copy=False)
-                                fov_u64 = id_arr[:, 1].astype(np.uint64, copy=False)
-                                canonical = (
-                                    np.uint64(1 << 48)
-                                    + (fov_u64 << np.uint64(32))
-                                    + low_u64
+                            old_id = prepared["id"].astype(np.uint32, copy=False)
+                            if old_id.ndim == 2 and old_id.shape[1] >= 2 and write_remap and output_path.name.lower() == "transcripts.zarr.zip":
+                                one_shift_48 = (np.int64(1) << np.int64(48))
+                                old_low = old_id[:, 0].astype(np.int64, copy=False)
+                                old_fov = old_id[:, 1].astype(np.int64, copy=False)
+                                old_tid64 = (
+                                    one_shift_48
+                                    + (old_fov << np.int64(32))
+                                    + old_low
+                                ).astype(np.int64, copy=False)
+                                new_tid64 = (
+                                    one_shift_48
+                                    + (new_fov.astype(np.int64, copy=False) << np.int64(32))
+                                    + new_low.astype(np.int64, copy=False)
+                                ).astype(np.int64, copy=False)
+                                remap_path = output_path.with_name("transcripts_id_fov_remap.csv.gz")
+                                remap_df = pd.DataFrame(
+                                    {
+                                        "old_transcript_id": old_tid64,
+                                        "old_fov": old_id[:, 1].astype(np.uint32, copy=False),
+                                        "old_local_id": old_id[:, 0].astype(np.uint32, copy=False),
+                                        "new_transcript_id": new_tid64,
+                                        "new_fov": new_fov,
+                                        "new_local_id": new_low,
+                                    }
                                 )
-                                _, uniq_idx = np.unique(canonical, return_index=True)
-                                if uniq_idx.size < canonical.size:
-                                    uniq_idx = np.sort(uniq_idx.astype(np.int64, copy=False))
-                                    dropped = int(canonical.size - uniq_idx.size)
-                                    for arr_name in list(merged_base.keys()):
-                                        merged_base[arr_name] = merged_base[arr_name][uniq_idx, ...]
-                                    logger.warning(
-                                        "Removed %d duplicate transcript IDs while rebuilding level-0 grids",
-                                        dropped,
-                                    )
-                        except Exception:
-                            logger.debug("Level-0 transcript ID collision guard failed", exc_info=True)
+                                remap_df.to_csv(remap_path, index=False, compression="gzip")
+                                logger.info(
+                                    "Wrote transcript ID/FOV remap log: %s (%d rows)",
+                                    remap_path,
+                                    len(remap_df),
+                                )
 
-                    level_source = merged_base
+                            prepared["id"] = np.stack([new_low, new_fov], axis=1)
+                            canonical_u64 = (
+                                np.uint64(1 << 48)
+                                + (new_fov.astype(np.uint64, copy=False) << np.uint64(32))
+                                + new_low.astype(np.uint64, copy=False)
+                            )
+                            prepared["uuid"] = np.stack(
+                                [
+                                    (canonical_u64 & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                    ((canonical_u64 >> np.uint64(32)) & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                ],
+                                axis=1,
+                            )
+
+                        return prepared
+
+                    level_inputs: dict[str, tuple[dict[str, np.ndarray], dict[str, dict]]] = {}
+                    for level_name in level_names:
+                        src_level = str(level_name)
+                        if src_level not in grids_group:
+                            continue
+                        merged_level, array_meta_level = _collect_level_arrays(grids_group[src_level])
+                        if merged_level is None or array_meta_level is None:
+                            continue
+                        prepared_level = _prepare_level_for_rebuild(
+                            merged_level,
+                            write_remap=(src_level == "0"),
+                        )
+                        if prepared_level is None:
+                            continue
+                        level_inputs[src_level] = (prepared_level, array_meta_level)
+
+                    if not level_inputs:
+                        return
+
                     for level_idx, level_name in enumerate(level_names):
-                        if level_idx > 0:
-                            prev_count = int(level_source["location"].shape[0])
-                            # Preserve full pyramid depth from input metadata.
-                            # Keep coarsening each level, but never stop early.
-                            next_count = max(1, int(math.floor(prev_count * 0.25)))
-                            level_source = _subsample_level_arrays(level_source, next_count)
+                        level_name = str(level_name)
+                        if level_name not in level_inputs:
+                            rebuilt_levels.append((level_name, []))
+                            grid_keys_by_level.append([])
+                            grid_counts_by_level.append([])
+                            continue
 
-                        tile_size = _tile_size_for_level(str(level_name), level_idx)
-                        
-                        # Arrays built from transcript_table are already crop-local.
-                        # Only subtract the crop origin when rebuilding from source grid data.
+                        level_source, level_meta = level_inputs[level_name]
+                        tile_size = _tile_size_for_level(level_name, level_idx)
+
                         locations_for_tiling = level_source["location"].copy()
-                        if origin_xy is not None and not built_from_table:
+                        if origin_xy is not None:
                             x0, y0 = origin_xy
                             locations_for_tiling[:, 0] -= x0
                             locations_for_tiling[:, 1] -= y0
-                        
-                        # Compute tile coordinates from rebased locations at every level.
+
                         gx = np.floor(locations_for_tiling[:, 0] / tile_size).astype(np.int64, copy=False)
                         gy = np.floor(locations_for_tiling[:, 1] / tile_size).astype(np.int64, copy=False)
-                        
-                        # Some transcripts can have slightly negative rebased coordinates.
-                        # Keep coordinates unchanged, but pin grid tile indices to non-negative
-                        # to match Xenium-style tile key conventions and avoid negative keys.
                         gx = np.maximum(gx, 0)
                         gy = np.maximum(gy, 0)
 
@@ -1605,32 +1682,122 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 for name, arr in level_source.items()
                             }
                             tile_count = int(tile_arrays["location"].shape[0])
-                            
-                            # Only include non-empty tiles in metadata and rebuilt list.
                             if tile_count > 0:
-                                # Arrays built from transcript_table are already crop-local.
-                                # Only rebase stored locations when source grid data was used.
-                                if origin_xy is not None and not built_from_table and "location" in tile_arrays:
+                                if origin_xy is not None and "location" in tile_arrays:
                                     x0, y0 = origin_xy
                                     loc = tile_arrays["location"].copy()
                                     loc[:, 0] -= x0
                                     loc[:, 1] -= y0
                                     tile_arrays["location"] = loc
-                                
-                                level_tiles.append((tile_key, tile_arrays, array_meta_base))
+
+                                level_tiles.append((tile_key, tile_arrays, level_meta))
                                 level_keys.append(tile_key)
                                 level_counts.append(tile_count)
 
-                        if str(level_name) == "0":
+                        if level_name == "0":
                             level0_total = int(sum(level_counts))
 
-                        rebuilt_levels.append((str(level_name), level_tiles))
+                        rebuilt_levels.append((level_name, level_tiles))
                         grid_keys_by_level.append(level_keys)
                         grid_counts_by_level.append(level_counts)
 
                     # Grids was not copied (skipped in _copy_group), so create it fresh.
                     # No delete needed — ZipStore is write-once and can't delete, but since
                     # we never wrote grids keys, we can create them without conflict.
+                    # Compatibility normalization: remap active FOV ids to dense [0..N-1]
+                    # across all rebuilt levels so loaders that expect dense spaces can
+                    # render all transcripts reliably.
+                    applied_fov_remap: dict[int, int] = {}
+                    if len(rebuilt_levels) > 0:
+                        level0_tiles = rebuilt_levels[0][1]
+                        used_fov_sorted: list[int] = []
+                        for _tile_key, tile_arrays, _meta in level0_tiles:
+                            id_arr = tile_arrays.get("id")
+                            if (
+                                id_arr is None
+                                or getattr(id_arr, "ndim", 0) != 2
+                                or id_arr.shape[1] < 2
+                                or id_arr.shape[0] == 0
+                            ):
+                                continue
+                            used_vals = np.unique(id_arr[:, 1].astype(np.int64, copy=False))
+                            used_fov_sorted.extend(int(v) for v in used_vals.tolist() if int(v) >= 0)
+
+                        if used_fov_sorted:
+                            used_fov_sorted = sorted(set(used_fov_sorted))
+                            fov_remap = {old: new for new, old in enumerate(used_fov_sorted)}
+                            applied_fov_remap = dict(fov_remap)
+                            max_old_fov = int(used_fov_sorted[-1])
+                            fov_lut = np.full(max_old_fov + 1, -1, dtype=np.int64)
+                            for old, new in fov_remap.items():
+                                fov_lut[int(old)] = int(new)
+
+                            for _level_name, level_tiles in rebuilt_levels:
+                                for _tile_key, tile_arrays, _meta in level_tiles:
+                                    id_arr = tile_arrays.get("id")
+                                    if (
+                                        id_arr is None
+                                        or getattr(id_arr, "ndim", 0) != 2
+                                        or id_arr.shape[1] < 2
+                                        or id_arr.shape[0] == 0
+                                    ):
+                                        continue
+
+                                    id_arr = id_arr.copy()
+                                    fov_old = id_arr[:, 1].astype(np.int64, copy=False)
+                                    clipped = np.clip(fov_old, 0, max_old_fov)
+                                    mapped = np.where(
+                                        (fov_old >= 0) & (fov_old <= max_old_fov) & (fov_lut[clipped] >= 0),
+                                        fov_lut[clipped],
+                                        fov_old,
+                                    ).astype(np.uint32, copy=False)
+                                    id_arr[:, 1] = mapped
+                                    tile_arrays["id"] = id_arr
+
+                                    uuid_arr = tile_arrays.get("uuid")
+                                    if (
+                                        uuid_arr is not None
+                                        and getattr(uuid_arr, "ndim", 0) == 2
+                                        and uuid_arr.shape[1] >= 2
+                                        and uuid_arr.shape[0] == id_arr.shape[0]
+                                    ):
+                                        low_u64 = id_arr[:, 0].astype(np.uint64, copy=False)
+                                        fov_u64 = id_arr[:, 1].astype(np.uint64, copy=False)
+                                        canonical_u64 = (
+                                            np.uint64(1 << 48)
+                                            + (fov_u64 << np.uint64(32))
+                                            + low_u64
+                                        )
+                                        tile_arrays["uuid"] = np.stack(
+                                            [
+                                                (canonical_u64 & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                                ((canonical_u64 >> np.uint64(32)) & np.uint64(0xFFFFFFFF)).astype(np.uint32, copy=False),
+                                            ],
+                                            axis=1,
+                                        )
+
+                            # Always emit remap sidecar for traceability (identity or compacted).
+                            remap_path = output_path.with_name("old_fov_to_new_fov.csv")
+                            old_name_attr = dst_root.attrs.get("fov_names", [])
+                            if isinstance(old_name_attr, (list, tuple)):
+                                old_name_list = [str(v) for v in old_name_attr]
+                            else:
+                                old_name_list = []
+
+                            remap_df = pd.DataFrame(
+                                {
+                                    "old_fov": used_fov_sorted,
+                                    "new_fov": [fov_remap[v] for v in used_fov_sorted],
+                                    "old_fov_name": [old_name_list[v] if 0 <= int(v) < len(old_name_list) else "" for v in used_fov_sorted],
+                                }
+                            )
+                            remap_df.to_csv(remap_path, index=False)
+                            logger.info(
+                                "Wrote FOV remap log: %s (%d rows)",
+                                remap_path,
+                                len(remap_df),
+                            )
+
                     new_grids = dst_root.require_group("grids")
 
                     for level_name, level_tiles in rebuilt_levels:
@@ -1695,6 +1862,8 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                                 for ak, av in m.get("attrs", {}).items():
                                     dst_arr.attrs[ak] = av
 
+
+
                     # Recompute grids attrs
                     new_grid_attrs = dict(source_grid_attrs)
                     new_grid_attrs["number_levels"] = len(rebuilt_levels)
@@ -1739,10 +1908,18 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                         else:
                             old_fov_names = []
                         generated_fov_names = _generate_fov_names(total_fovs, level0_grid_cols)
-                        new_fov_names = [
-                            old_fov_names[i] if i < len(old_fov_names) else generated_fov_names[i]
-                            for i in range(total_fovs)
-                        ]
+                        new_fov_names = list(generated_fov_names)
+
+                        # If sparse old FOV ids were compacted to dense ids, remap the names
+                        # to keep name semantics aligned with the rewritten id[:,1] values.
+                        if applied_fov_remap and old_fov_names:
+                            for old_idx, new_idx in applied_fov_remap.items():
+                                if 0 <= int(new_idx) < total_fovs and 0 <= int(old_idx) < len(old_fov_names):
+                                    new_fov_names[int(new_idx)] = old_fov_names[int(old_idx)]
+                        elif old_fov_names:
+                            for i in range(min(total_fovs, len(old_fov_names))):
+                                new_fov_names[i] = old_fov_names[i]
+
                         dst_root.attrs["number_fovs"] = total_fovs
                         dst_root.attrs["fov_names"] = new_fov_names
                         new_fov_metadata["number_fovs"] = total_fovs
@@ -1770,7 +1947,7 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                             new_fov_metadata["fov_names"] = fov_names
                     
 
-                    # FOV compaction now done pre-tiling (see ~line 1225) for better reliability.
+                    # FOV compatibility normalization is applied above before writing tiles.
 
                     # Recompute density/gene CSR from level 0 locations and gene identities.
                     if "density" in dst_root and "gene" in dst_root["density"] and "0" in new_grids:
@@ -1945,14 +2122,23 @@ def filter_zarr_zip_by_row_indices_preserve_schema(
                     elif "grids" in dst_root and "0" in dst_root["grids"]:
                         level0_tiles = sorted(dst_root["grids"]["0"].keys())
                         if len(level0_tiles) > 0:
-                            # Parse tile keys "x,y" format
-                            coords = [tuple(map(int, tile_key.split(","))) for tile_key in level0_tiles]
-                            max_x = max((c[0] for c in coords), default=0)
-                            max_y = max((c[1] for c in coords), default=0)
-                            total_fovs = (max_y + 1) * (max_x + 1)
-                            dst_root.attrs["number_fovs"] = int(total_fovs)
-                            fov_names = _generate_fov_names(int(total_fovs), int(max_x + 1))
-                            dst_root.attrs["fov_names"] = fov_names
+                            used_fov_indices: set[int] = set()
+                            for tile_key in level0_tiles:
+                                tile = dst_root["grids"]["0"][tile_key]
+                                if "id" not in tile:
+                                    continue
+                                id_arr = tile["id"][:]
+                                if getattr(id_arr, "ndim", 0) != 2 or id_arr.shape[1] < 2 or id_arr.shape[0] == 0:
+                                    continue
+                                used_fov_indices.update(
+                                    int(v)
+                                    for v in np.unique(id_arr[:, 1].astype(np.int64, copy=False)).tolist()
+                                    if int(v) >= 0
+                                )
+                            if used_fov_indices:
+                                total_fovs = int(max(used_fov_indices) + 1)
+                                dst_root.attrs["number_fovs"] = int(total_fovs)
+                                dst_root.attrs["fov_names"] = _generate_fov_names(int(total_fovs))
                 except Exception:
                     logger.debug("Failed to re-apply FOV metadata after rebuild", exc_info=True)
 
