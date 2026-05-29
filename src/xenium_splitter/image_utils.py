@@ -393,7 +393,7 @@ def _write_pyramidal_ome_tiff(
     """Write a tiled, pyramidal OME-TIFF compatible with Xenium Explorer.
 
     Sub-resolution levels are stored as sub-IFDs (the TIFF pyramid standard).
-    Tile size is 256×256 as required by Xenium Explorer 4+.
+    Tile size is 1024×1024 per 10x Xenium Explorer guidance.
     When pixel_size_um is provided, PhysicalSizeX/Y are written into the OME-XML
     so Xenium Explorer shows coordinates in micrometers.
     """
@@ -409,11 +409,32 @@ def _write_pyramidal_ome_tiff(
         metadata["PhysicalSizeXUnit"] = "µm"
         metadata["PhysicalSizeYUnit"] = "µm"
     photometric = "rgb" if (image.ndim == 3 and image.shape[2] in (3, 4)) else "minisblack"
-    options: dict = {"tile": (256, 256), "photometric": photometric}
-    with tifffile.TiffWriter(output_path, bigtiff=True) as tif:
-        tif.write(levels[0], subifds=n_subifds, metadata=metadata, **options)
-        for level in levels[1:]:
-            tif.write(level, subfiletype=1, **options)
+    options: dict = {
+        "tile": (1024, 1024),
+        "photometric": photometric,
+        "compression": "zlib",
+        "resolutionunit": "CENTIMETER",
+    }
+
+    def _resolution_for_level(scale: float) -> tuple[float, float] | None:
+        if pixel_size_um is None or pixel_size_um <= 0:
+            return None
+        effective_pixel_size_um = float(pixel_size_um) * float(scale)
+        pixels_per_centimeter = 1.0e4 / effective_pixel_size_um
+        return (pixels_per_centimeter, pixels_per_centimeter)
+
+    with tifffile.TiffWriter(output_path, bigtiff=True, ome=True) as tif:
+        base_kwargs = dict(options)
+        resolution = _resolution_for_level(1.0)
+        if resolution is not None:
+            base_kwargs["resolution"] = resolution
+        tif.write(levels[0], subifds=n_subifds, metadata=metadata, **base_kwargs)
+        for level_index, level in enumerate(levels[1:], start=1):
+            level_kwargs = dict(options)
+            resolution = _resolution_for_level(2.0 ** level_index)
+            if resolution is not None:
+                level_kwargs["resolution"] = resolution
+            tif.write(level, subfiletype=1, **level_kwargs)
 
 
 def save_image_like(

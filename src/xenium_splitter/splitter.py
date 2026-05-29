@@ -1381,12 +1381,8 @@ def _split_external_he_image(config: SplitConfig, regions, metrics: RunMetrics) 
                 pixel_size_um=config.pixel_size_um,
                 squash_layers=config.squash_layers,
             )
-            destination = region_dir / he_image.name
-            save_image_like(he_image, destination, cropped, pixel_size_um=config.pixel_size_um)
-
-            if config.convert_svs_to_ome and he_image.suffix.lower() == ".svs":
-                ome_output = region_dir / f"{he_image.stem}.ome.tiff"
-                write_array_as_ome_tiff(cropped, ome_output, pixel_size_um=config.pixel_size_um)
+            destination = region_dir / f"{he_image.stem}.ome.tif"
+            write_array_as_ome_tiff(cropped, destination, pixel_size_um=config.pixel_size_um)
     else:
         image = read_image(he_image, squash_layers=config.squash_layers)
         for region in regions:
@@ -1394,12 +1390,8 @@ def _split_external_he_image(config: SplitConfig, regions, metrics: RunMetrics) 
             region_dir.mkdir(parents=True, exist_ok=True)
 
             cropped = mask_and_crop_region(image, region.polygon, pixel_size_um=config.pixel_size_um)
-            destination = region_dir / he_image.name
-            save_image_like(he_image, destination, cropped, pixel_size_um=config.pixel_size_um)
-
-            if config.convert_svs_to_ome and he_image.suffix.lower() == ".svs":
-                ome_output = region_dir / f"{he_image.stem}.ome.tiff"
-                write_array_as_ome_tiff(cropped, ome_output, pixel_size_um=config.pixel_size_um)
+            destination = region_dir / f"{he_image.stem}.ome.tif"
+            write_array_as_ome_tiff(cropped, destination, pixel_size_um=config.pixel_size_um)
 
     metrics.file_metrics.append(
         FileMetric(
