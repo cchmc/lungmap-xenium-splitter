@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from xenium_splitter.image_utils import (
+    generate_morphology_mip,
     mask_and_crop_region,
     read_masked_cropped_region,
     read_image,
@@ -51,7 +52,7 @@ from xenium_splitter.io_utils import (
     write_hdf5_table,
 )
 from xenium_splitter.lasso import load_lasso_regions
-from xenium_splitter.metadata import build_run_metadata_markdown
+from xenium_splitter.metadata import build_region_readme_markdown, build_run_metadata_markdown
 from xenium_splitter.models import FileMetric, RunMetrics, SplitConfig
 from xenium_splitter.recalculate_diffexp import recalculate_diffexp_for_region
 
@@ -434,6 +435,18 @@ def _update_region_metadata_outputs(
         else:
             logger.warning("Skipped metadata update for region %s (experiment.xenium not found)", region_id)
 
+        region_readme = build_region_readme_markdown(
+            config,
+            region_id=region_id,
+            region_area_um2=region_area_um2,
+            num_cells=num_cells,
+            num_transcripts=num_transcripts,
+            has_old_fov_to_new_fov=(region_dir / "old_fov_to_new_fov.csv").is_file(),
+            has_transcript_id_fov_remap=(region_dir / "transcripts_id_fov_remap.csv.gz").is_file(),
+            has_grid_overlays=(region_dir / "grid_overlays").is_dir(),
+        )
+        (region_dir / "README.md").write_text(region_readme, encoding="utf-8")
+
 
 def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     started_at = datetime.now(timezone.utc)
@@ -553,7 +566,13 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     if config.he_image and not config.skip_images:
         _time_stage("split_external_he_image", lambda: _split_external_he_image(config, regions, metrics))
 
-    _time_stage("write_morphology_grid_overlays", lambda: _write_morphology_grid_overlays(config, regions, metrics))
+    _time_stage(
+        "ensure_morphology_mip_outputs",
+        lambda: _ensure_region_morphology_mip_outputs(config, regions, metrics, filtered_input_files),
+    )
+
+    if config.overlays:
+        _time_stage("write_morphology_grid_overlays", lambda: _write_morphology_grid_overlays(config, regions, metrics))
     _time_stage("recalculate_diffexp", lambda: _recalculate_diffexp_for_regions(config, regions, metrics))
     _time_stage("update_region_metadata", lambda: _update_region_metadata_outputs(config, regions, metrics))
 
@@ -885,12 +904,6 @@ def _split_file_group(
                 subset = per_region_subsets[region.region_id]
                 dest = config.output_dir / f"region_{region.region_id}" / rel
                 if file_name_lower.endswith(".zarr.zip"):
-                    if file_name_lower == "transcripts.zarr.zip":
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(
-                            fp,
-                            dest.with_name("transcripts_original.zarr.zip"),
-                        )
                     transcript_id_values = None
                     if file_name_lower == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
                         transcript_id_values = subset["transcript_id"].to_numpy()
@@ -1411,6 +1424,55 @@ def _existing_region_morphology_mip(region_dir: Path) -> Path | None:
     return None
 
 
+def _existing_region_morphology(region_dir: Path) -> Path | None:
+    for file_name in ("morphology.ome.tif", "morphology.ome.tiff"):
+        candidate = region_dir / file_name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _has_original_morphology_mip_input(input_files: list[Path]) -> bool:
+    for path in input_files:
+        if path.name.lower() in {"morphology_mip.ome.tif", "morphology_mip.ome.tiff"}:
+            return True
+    return False
+
+
+def _ensure_region_morphology_mip_outputs(
+    config: SplitConfig,
+    regions,
+    metrics: RunMetrics,
+    input_files: list[Path],
+) -> None:
+    if config.skip_images:
+        return
+    if _has_original_morphology_mip_input(input_files):
+        return
+
+    for region in regions:
+        region_dir = config.output_dir / f"region_{region.region_id}"
+        if _existing_region_morphology_mip(region_dir) is not None:
+            continue
+
+        morphology_path = _existing_region_morphology(region_dir)
+        if morphology_path is None:
+            continue
+
+        mip_image = generate_morphology_mip(read_image(morphology_path, squash_layers=True))
+        mip_path = region_dir / "morphology_mip.ome.tif"
+        write_array_as_ome_tiff(mip_image, mip_path, pixel_size_um=config.pixel_size_um)
+
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(morphology_path.relative_to(config.output_dir)),
+                file_type="image",
+                status="processed",
+                detail="Generated morphology_mip.ome.tif from cropped morphology.ome.tif",
+            )
+        )
+
+
 def _read_transcript_grid_spec(transcripts_zarr_zip: Path) -> tuple[list[str], float] | None:
     try:
         import tempfile
@@ -1865,13 +1927,6 @@ def _split_zarr(
         transcript_id_values = None
         if lower_name == "transcripts.zarr.zip" and "transcript_id" in subset.columns:
             transcript_id_values = subset["transcript_id"].to_numpy()
-
-        if lower_name == "transcripts.zarr.zip":
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(
-                file_path,
-                destination.with_name("transcripts_original.zarr.zip"),
-            )
 
         # Rebase coordinate-bearing zarr outputs to the crop origin.
         if lower_name in {"cells.zarr.zip", "transcripts.zarr.zip"}:

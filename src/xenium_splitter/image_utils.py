@@ -498,6 +498,11 @@ def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
     return arr.astype(np.uint8)
 
 
+def generate_morphology_mip(image: np.ndarray) -> np.ndarray:
+    """Generate a morphology MIP-style image from a cropped morphology image."""
+    return _squash_if_needed(np.asarray(image))
+
+
 def _resize_for_overlay(
     image: np.ndarray,
     *,

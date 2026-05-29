@@ -28,6 +28,7 @@ class SplitConfig:
     include_globs: list[str] = field(default_factory=list)
     pixel_size_um: float | None = None
     skip_images: bool = False
+    overlays: bool = False
     recalculate_diffexp: bool = True
     write_cell_feature_matrix_zarr: bool = True
     copy_transcripts: bool = False

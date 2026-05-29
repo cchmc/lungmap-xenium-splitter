@@ -252,6 +252,7 @@ def build_run_metadata_markdown(
     lines.append(f"- Output directory: {config.output_dir}")
     lines.append(f"- Convert SVS to OME-TIFF: {config.convert_svs_to_ome}")
     lines.append(f"- Squash multi-layer image stacks: {config.squash_layers}")
+    lines.append(f"- Write grid overlays: {config.overlays}")
     lines.append(f"- Include globs: {config.include_globs if config.include_globs else 'None'}")
     lines.append("")
     lines.append("## Summary Metrics")
@@ -284,5 +285,73 @@ def build_run_metadata_markdown(
 
     _append_per_region_sections(lines, metrics)
     _append_timing_breakdown(lines, metrics)
+
+    return "\n".join(lines) + "\n"
+
+
+def build_region_readme_markdown(
+    config: SplitConfig,
+    *,
+    region_id: str,
+    region_area_um2: float,
+    num_cells: int,
+    num_transcripts: int,
+    has_old_fov_to_new_fov: bool,
+    has_transcript_id_fov_remap: bool,
+    has_grid_overlays: bool,
+) -> str:
+    lines: list[str] = []
+    lines.append(f"# Region {region_id}")
+    lines.append("")
+    lines.append("## Creation")
+    lines.append("")
+    lines.append(
+        f"This directory was created by xenium-splitter from `{config.input_dir}` using LASSO file `{config.lasso_file}` for region `{region_id}`."
+    )
+    lines.append("")
+    lines.append("## Processing Summary")
+    lines.append("")
+    lines.append(f"- Cells written: {num_cells}")
+    lines.append(f"- Transcripts written: {num_transcripts}")
+    lines.append(f"- Region area (um^2): {region_area_um2:.2f}")
+    lines.append(f"- Images skipped during run: {config.skip_images}")
+    lines.append(f"- Grid overlays requested: {config.overlays}")
+    lines.append(f"- Transcript archives copied verbatim: {config.copy_transcripts}")
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("")
+    lines.append("- Filtered transcript, cell, and boundary outputs are region-specific subsets of the original Xenium outputs.")
+    lines.append("- When transcript coordinates are rebased, locations in region outputs are crop-local so they align with region image crops.")
+    lines.append("- `experiment.xenium` and `_region_metadata.json` are updated to reflect region-level counts and area.")
+
+    explained_files: list[tuple[str, str]] = []
+    if has_old_fov_to_new_fov:
+        explained_files.append(
+            (
+                "old_fov_to_new_fov.csv",
+                "Maps original FOV indices to compacted FOV indices used in the region transcript zarr after rebuilding sparse FOV spaces.",
+            )
+        )
+    if has_transcript_id_fov_remap:
+        explained_files.append(
+            (
+                "transcripts_id_fov_remap.csv.gz",
+                "Lists old and new transcript ID/FOV assignments after transcript grid rebuilding so transcript identity changes can be audited.",
+            )
+        )
+    if has_grid_overlays:
+        explained_files.append(
+            (
+                "grid_overlays/",
+                "Contains per-level morphology overlay images with transcript grid lines, labels, and FOV guides for spatial debugging.",
+            )
+        )
+
+    if explained_files:
+        lines.append("")
+        lines.append("## Additional Files")
+        lines.append("")
+        for name, description in explained_files:
+            lines.append(f"- `{name}`: {description}")
 
     return "\n".join(lines) + "\n"

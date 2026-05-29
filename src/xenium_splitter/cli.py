@@ -66,6 +66,11 @@ def split_command(
         "--skip-images/--process-images",
         help="Skip image extraction to reduce memory usage.",
     ),
+    overlays: bool = typer.Option(
+        False,
+        "--overlays/--no-overlays",
+        help="Write region grid overlay images when a morphology_mip.ome.tif output is available.",
+    ),
     recalculate_diffexp: bool = typer.Option(
         True,
         "--recalculate-diffexp/--skip-diffexp-recalc",
@@ -99,6 +104,7 @@ def split_command(
         squash_layers=squash_layers,
         include_globs=include_glob or [],
         skip_images=skip_images,
+        overlays=overlays,
         recalculate_diffexp=recalculate_diffexp,
         write_cell_feature_matrix_zarr=write_cell_feature_matrix_zarr,
         copy_transcripts=copy_transcripts,
