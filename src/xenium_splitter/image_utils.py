@@ -141,7 +141,10 @@ def _read_masked_cropped_tiff_region(
         logger.error(f"Failed to read TIFF {path.name}: {e}")
         raise
 
-    h, w = full.shape[:2]
+    spatial_axes = _spatial_axes_for_array(full, path=path)
+    y_axis, x_axis = spatial_axes
+    h = int(full.shape[y_axis])
+    w = int(full.shape[x_axis])
     min_x_i_safe = max(min_x_i, 0)
     min_y_i_safe = max(min_y_i, 0)
     max_x_i_safe = min(max_x_i, w)
@@ -155,9 +158,12 @@ def _read_masked_cropped_tiff_region(
         )
         return np.empty((0, 0), dtype=full.dtype)
     
-    cropped = full[min_y_i_safe:max_y_i_safe, min_x_i_safe:max_x_i_safe]
+    crop_slices = [slice(None)] * full.ndim
+    crop_slices[y_axis] = slice(min_y_i_safe, max_y_i_safe)
+    crop_slices[x_axis] = slice(min_x_i_safe, max_x_i_safe)
+    cropped = full[tuple(crop_slices)]
     local_polygon = affinity.translate(polygon_px, xoff=-min_x_i_safe, yoff=-min_y_i_safe)
-    masked = _apply_local_mask(cropped, local_polygon)
+    masked = _apply_local_mask(cropped, local_polygon, spatial_axes=spatial_axes)
     
     if masked.size == 0 or np.all(masked == 0):
         logger.warning(f"Result is empty or all-black for {path.name} region bbox ({min_x_i_safe}, {min_y_i_safe}, {max_x_i_safe}, {max_y_i_safe})")
@@ -322,11 +328,19 @@ def _bbox_int(bounds: tuple[float, float, float, float]) -> tuple[int, int, int,
     return int(np.floor(min_x)), int(np.floor(min_y)), int(np.ceil(max_x)), int(np.ceil(max_y))
 
 
-def _apply_local_mask(image: np.ndarray, local_polygon: Polygon) -> np.ndarray:
-    if image.ndim not in (2, 3):
-        raise ValueError(f"Expected 2D or 3D image array, got shape {image.shape}")
+def _apply_local_mask(
+    image: np.ndarray,
+    local_polygon: Polygon,
+    spatial_axes: tuple[int, int] | None = None,
+) -> np.ndarray:
+    if image.ndim < 2:
+        raise ValueError(f"Expected image array with at least 2 dims, got shape {image.shape}")
 
-    crop_h, crop_w = image.shape[:2]
+    if spatial_axes is None:
+        spatial_axes = _spatial_axes_for_array(image)
+    y_axis, x_axis = spatial_axes
+    crop_h = int(image.shape[y_axis])
+    crop_w = int(image.shape[x_axis])
     if crop_h == 0 or crop_w == 0:
         return image
 
@@ -359,27 +373,32 @@ def _apply_local_mask(image: np.ndarray, local_polygon: Polygon) -> np.ndarray:
     
     if image.ndim == 2:
         return np.where(mask, image, 0)
-    return np.where(mask[..., None], image, 0)
+
+    broadcast_mask = mask
+    for axis in range(image.ndim):
+        if axis not in spatial_axes:
+            broadcast_mask = np.expand_dims(broadcast_mask, axis=axis)
+    return np.where(broadcast_mask, image, 0)
 
 
-def _pyramid_levels(image: np.ndarray) -> list[np.ndarray]:
+def _pyramid_levels(image: np.ndarray, axes: str | None = None) -> list[np.ndarray]:
     """Build a list of progressively halved images for a pyramid OME-TIFF.
 
     Stops when either spatial dimension drops to 512 px or below.
     Each level is a 2×2 block-average of the previous (preserves dtype).
     """
     levels: list[np.ndarray] = [image]
+    spatial_axes = _spatial_axes_for_array(image, axes=axes)
     while True:
         prev = levels[-1]
-        h, w = prev.shape[:2]
+        y_axis, x_axis = _spatial_axes_for_array(prev, axes=axes)
+        h = int(prev.shape[y_axis])
+        w = int(prev.shape[x_axis])
         if h <= 512 or w <= 512:
             break
         nh, nw = h // 2, w // 2
-        trimmed = prev[: nh * 2, : nw * 2]
-        if trimmed.ndim == 3:
-            down = trimmed.reshape(nh, 2, nw, 2, trimmed.shape[2]).mean(axis=(1, 3))
-        else:
-            down = trimmed.reshape(nh, 2, nw, 2).mean(axis=(1, 3))
+        trimmed = _trim_spatial_axes(prev, spatial_axes, nh * 2, nw * 2)
+        down = _downsample_spatial_axes(trimmed, spatial_axes, nh, nw)
         levels.append(down.astype(prev.dtype))
     return levels
 
@@ -398,7 +417,7 @@ def _write_pyramidal_ome_tiff(
     so Xenium Explorer shows coordinates in micrometers.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    levels = _pyramid_levels(image)
+    levels = _pyramid_levels(image, axes=axes)
     n_subifds = len(levels) - 1
     metadata: dict = {}
     if axes:
@@ -408,7 +427,7 @@ def _write_pyramidal_ome_tiff(
         metadata["PhysicalSizeY"] = pixel_size_um
         metadata["PhysicalSizeXUnit"] = "µm"
         metadata["PhysicalSizeYUnit"] = "µm"
-    photometric = "rgb" if (image.ndim == 3 and image.shape[2] in (3, 4)) else "minisblack"
+    photometric = "rgb" if _is_rgb_like(image, axes=axes) else "minisblack"
     options: dict = {
         "tile": (1024, 1024),
         "photometric": photometric,
@@ -447,12 +466,7 @@ def save_image_like(
 
     source_name = source_path.name.lower()
     if source_name.endswith((".tif", ".tiff", ".ome.tif", ".ome.tiff")):
-        if image.ndim == 2:
-            axes = "YX"
-        elif image.ndim == 3:
-            axes = "YXC"
-        else:
-            axes = None
+        axes = _infer_write_axes(image, source_path)
         _write_pyramidal_ome_tiff(image, output_path, axes=axes, pixel_size_um=pixel_size_um)
         return output_path
 
@@ -479,14 +493,81 @@ def write_array_as_ome_tiff(
     pixel_size_um: float | None = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    if image.ndim == 2:
-        axes = "YX"
-    elif image.ndim == 3:
-        axes = "YXC"
-    else:
-        raise ValueError(f"Unsupported array shape for OME-TIFF: {image.shape}")
+    axes = _infer_write_axes(image)
     _write_pyramidal_ome_tiff(image, output_path, axes=axes, pixel_size_um=pixel_size_um)
     return output_path
+
+
+def _infer_write_axes(image: np.ndarray, source_path: Path | None = None) -> str:
+    arr = np.asarray(image)
+    source_axes = _get_tiff_axes(source_path) if source_path is not None else None
+    if source_axes and len(source_axes) == arr.ndim:
+        return source_axes
+    if arr.ndim == 2:
+        return "YX"
+    if _is_rgb_like(arr):
+        if arr.ndim == 3:
+            return "YXC"
+        if arr.ndim == 4:
+            return "ZYXC"
+    if arr.ndim == 3:
+        return "ZYX"
+    if arr.ndim == 4:
+        return "TZYX"
+    raise ValueError(f"Unsupported array shape for OME-TIFF: {arr.shape}")
+
+
+def _is_rgb_like(image: np.ndarray, axes: str | None = None) -> bool:
+    arr = np.asarray(image)
+    if axes and len(axes) == arr.ndim:
+        axes_lower = axes.lower()
+        try:
+            c_axis = axes_lower.index("c")
+            return int(arr.shape[c_axis]) in (3, 4)
+        except ValueError:
+            return False
+    return arr.ndim >= 3 and int(arr.shape[-1]) in (3, 4)
+
+
+def _spatial_axes_for_array(image: np.ndarray, path: Path | None = None, axes: str | None = None) -> tuple[int, int]:
+    arr = np.asarray(image)
+    source_axes = axes or (_get_tiff_axes(path) if path is not None else None)
+    if source_axes and len(source_axes) == arr.ndim:
+        axes_lower = source_axes.lower()
+        try:
+            return axes_lower.index("y"), axes_lower.index("x")
+        except ValueError:
+            pass
+    if _is_rgb_like(arr, axes=source_axes):
+        return arr.ndim - 3, arr.ndim - 2
+    return arr.ndim - 2, arr.ndim - 1
+
+
+def _trim_spatial_axes(
+    image: np.ndarray,
+    spatial_axes: tuple[int, int],
+    target_h: int,
+    target_w: int,
+) -> np.ndarray:
+    slices = [slice(None)] * image.ndim
+    y_axis, x_axis = spatial_axes
+    slices[y_axis] = slice(0, target_h)
+    slices[x_axis] = slice(0, target_w)
+    return image[tuple(slices)]
+
+
+def _downsample_spatial_axes(
+    image: np.ndarray,
+    spatial_axes: tuple[int, int],
+    out_h: int,
+    out_w: int,
+) -> np.ndarray:
+    y_axis, x_axis = spatial_axes
+    moved = np.moveaxis(image, (y_axis, x_axis), (-2, -1))
+    lead_shape = moved.shape[:-2]
+    reshaped = moved.reshape(lead_shape + (out_h, 2, out_w, 2))
+    down = reshaped.mean(axis=(-3, -1))
+    return np.moveaxis(down, (-2, -1), (y_axis, x_axis))
 
 
 def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
@@ -501,6 +582,93 @@ def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
 def generate_morphology_mip(image: np.ndarray) -> np.ndarray:
     """Generate a morphology MIP-style image from a cropped morphology image."""
     return _squash_if_needed(np.asarray(image))
+
+
+def generate_morphology_focus(image: np.ndarray, path: Path | None = None) -> np.ndarray:
+    focus_image, _stats = generate_morphology_focus_with_stats(image, path)
+    return focus_image
+
+
+def generate_morphology_focus_with_stats(
+    image: np.ndarray,
+    path: Path | None = None,
+) -> tuple[np.ndarray, dict[str, Any] | None]:
+    """Generate a morphology focus image from a cropped morphology stack.
+
+    Uses Laplacian-variance focus scoring across Z-like planes. If the image is
+    already 2D or RGB, it is returned unchanged.
+    """
+    arr = np.asarray(image)
+    if arr.ndim == 2:
+        return arr, None
+    if arr.ndim == 3 and arr.shape[-1] in (3, 4):
+        return arr, None
+
+    stack = _focus_plane_stack(arr, path)
+    if stack is None or stack.shape[0] == 0:
+        return _squash_if_needed(arr, path=path), None
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise RuntimeError(
+            "Morphology focus generation requires opencv-python-headless."
+        ) from exc
+
+    focus_scores: list[float] = []
+    for plane in stack:
+        plane_gray = _focus_plane_to_grayscale(plane)
+        lap = cv2.Laplacian(plane_gray, cv2.CV_32F)
+        focus_scores.append(float(lap.var()))
+
+    best_index = int(np.argmax(np.asarray(focus_scores, dtype=np.float64)))
+    stats = {
+        "stack_count": int(stack.shape[0]),
+        "selected_index": int(best_index),
+        "focus_scores": [float(score) for score in focus_scores],
+    }
+    return np.asarray(stack[best_index]).astype(arr.dtype, copy=False), stats
+
+
+def _focus_plane_stack(image: np.ndarray, path: Path | None = None) -> np.ndarray | None:
+    arr = np.asarray(image)
+    axes = _get_tiff_axes(path) if path else None
+
+    if axes and len(axes) == arr.ndim:
+        axes_lower = axes.lower()
+        keep_axes = [i for i, ax in enumerate(axes_lower) if ax in {"y", "x"}]
+        color_axis = next(
+            (
+                i
+                for i, ax in enumerate(axes_lower)
+                if ax == "c" and arr.shape[i] in (3, 4)
+            ),
+            None,
+        )
+        if color_axis is not None:
+            keep_axes.append(color_axis)
+        keep_axes = sorted(set(keep_axes), key=lambda idx: idx)
+        plane_axes = [i for i in range(arr.ndim) if i not in keep_axes]
+        if plane_axes:
+            moved = np.moveaxis(arr, plane_axes + keep_axes, range(arr.ndim))
+            tail_shape = tuple(moved.shape[len(plane_axes):])
+            return moved.reshape((-1,) + tail_shape)
+
+    if arr.ndim == 3 and arr.shape[-1] not in (3, 4):
+        return arr
+    if arr.ndim == 4 and arr.shape[-1] in (3, 4):
+        return arr.reshape((-1,) + arr.shape[-3:])
+    return None
+
+
+def _focus_plane_to_grayscale(plane: np.ndarray) -> np.ndarray:
+    arr = np.asarray(plane)
+    if arr.ndim == 2:
+        return arr.astype(np.float32, copy=False)
+    if arr.ndim == 3 and arr.shape[-1] in (3, 4):
+        rgb = arr[..., :3].astype(np.float32, copy=False)
+        return (0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]).astype(np.float32, copy=False)
+    return _squash_if_needed(arr).astype(np.float32, copy=False)
 
 
 def _resize_for_overlay(

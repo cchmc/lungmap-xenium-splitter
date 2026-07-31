@@ -10,6 +10,8 @@ from pathlib import Path
 import pandas as pd
 
 from xenium_splitter.image_utils import (
+    generate_morphology_focus,
+    generate_morphology_focus_with_stats,
     generate_morphology_mip,
     mask_and_crop_region,
     read_masked_cropped_region,
@@ -57,6 +59,76 @@ from xenium_splitter.models import FileMetric, RunMetrics, SplitConfig
 from xenium_splitter.recalculate_diffexp import recalculate_diffexp_for_region
 
 logger = logging.getLogger(__name__)
+
+
+def _write_canonical_transcript_sidecars(
+    region_dir: Path,
+    subset: pd.DataFrame,
+    transcript_zarr_path: Path,
+) -> None:
+    """Write transcript tabular sidecars that match the rebuilt transcript zarr.
+
+    The schema-preserving zarr writer may reassign transcript IDs/FOVs. When it
+    does, it writes ``transcripts_id_fov_remap.csv.gz`` alongside the output zarr.
+    Re-apply that remap to the filtered transcript table before writing flat
+    sidecars so ``transcripts.csv.gz`` / ``transcripts.parquet`` stay consistent
+    with ``transcripts.zarr.zip``.
+    """
+    canonical_subset = subset.reset_index(drop=True).copy()
+    remap_path = transcript_zarr_path.with_name("transcripts_id_fov_remap.csv.gz")
+
+    if "transcript_id" in canonical_subset.columns and remap_path.is_file() and not canonical_subset.empty:
+        try:
+            remap_df = read_table(remap_path)
+            if {"old_transcript_id", "new_transcript_id"}.issubset(remap_df.columns):
+                join_df = remap_df.loc[:, [c for c in ["old_transcript_id", "new_transcript_id", "new_fov"] if c in remap_df.columns]].copy()
+                join_df["_old_transcript_id"] = pd.to_numeric(
+                    join_df["old_transcript_id"], errors="coerce"
+                ).astype("Int64")
+
+                merged = canonical_subset.copy()
+                merged["_old_transcript_id"] = pd.to_numeric(
+                    merged["transcript_id"], errors="coerce"
+                ).astype("Int64")
+                merged = merged.merge(
+                    join_df.drop(columns=["old_transcript_id"]),
+                    how="left",
+                    on="_old_transcript_id",
+                )
+
+                remapped_ids = pd.to_numeric(merged.get("new_transcript_id"), errors="coerce")
+                original_ids = pd.to_numeric(canonical_subset["transcript_id"], errors="coerce")
+                resolved_ids = remapped_ids.where(remapped_ids.notna(), original_ids)
+                canonical_subset["transcript_id"] = (
+                    resolved_ids.astype("int64") if resolved_ids.notna().all() else resolved_ids
+                )
+
+                if "new_fov" in merged.columns:
+                    remapped_fov = pd.to_numeric(merged["new_fov"], errors="coerce")
+                    for fov_col in ["fov", "fov_id", "fov_index"]:
+                        if fov_col not in canonical_subset.columns:
+                            continue
+                        original_fov = pd.to_numeric(canonical_subset[fov_col], errors="coerce")
+                        resolved_fov = remapped_fov.where(remapped_fov.notna(), original_fov)
+                        canonical_subset[fov_col] = (
+                            resolved_fov.astype("int64") if resolved_fov.notna().all() else resolved_fov
+                        )
+        except Exception:
+            logger.warning(
+                "Failed to apply transcript ID remap from %s; writing transcript sidecars with filtered table values",
+                remap_path,
+                exc_info=True,
+            )
+
+    write_table(canonical_subset, region_dir / "transcripts.csv.gz")
+    try:
+        write_table(canonical_subset, region_dir / "transcripts.parquet")
+    except Exception:
+        logger.debug(
+            "Skipping transcripts.parquet write for %s (optional parquet dependencies unavailable)",
+            region_dir,
+            exc_info=True,
+        )
 
 
 def _collect_fov_layout_summary(
@@ -438,12 +510,14 @@ def _update_region_metadata_outputs(
         region_readme = build_region_readme_markdown(
             config,
             region_id=region_id,
+            region_bounds_um=tuple(float(v) for v in region.bounds),
             region_area_um2=region_area_um2,
             num_cells=num_cells,
             num_transcripts=num_transcripts,
             has_old_fov_to_new_fov=(region_dir / "old_fov_to_new_fov.csv").is_file(),
             has_transcript_id_fov_remap=(region_dir / "transcripts_id_fov_remap.csv.gz").is_file(),
             has_grid_overlays=(region_dir / "grid_overlays").is_dir(),
+            focus_selection=(metrics.extra.get("focus_selection_by_region", {}) or {}).get(region_id),
         )
         (region_dir / "README.md").write_text(region_readme, encoding="utf-8")
 
@@ -569,6 +643,10 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     _time_stage(
         "ensure_morphology_mip_outputs",
         lambda: _ensure_region_morphology_mip_outputs(config, regions, metrics, filtered_input_files),
+    )
+    _time_stage(
+        "ensure_morphology_focus_outputs",
+        lambda: _ensure_region_morphology_focus_outputs(config, regions, metrics, filtered_input_files),
     )
 
     if config.overlays:
@@ -891,6 +969,14 @@ def _split_file_group(
 
     block_start = time.perf_counter()
     logger.debug("[_split_file_group] block=write_outputs begin: formats=%d", len(file_paths))
+    transcript_zarr_rel = next(
+        (
+            fp.relative_to(config.input_dir)
+            for fp in file_paths
+            if fp.name.lower() == "transcripts.zarr.zip"
+        ),
+        None,
+    )
     for fp in file_paths:
         rel = fp.relative_to(config.input_dir)
         file_name_lower = fp.name.lower()
@@ -985,6 +1071,15 @@ def _split_file_group(
                 file_type,
                 time.perf_counter() - write_start,
                 exc,
+            )
+
+    if transcript_zarr_rel is not None:
+        for region in regions:
+            region_dir = config.output_dir / f"region_{region.region_id}"
+            _write_canonical_transcript_sidecars(
+                region_dir,
+                per_region_subsets[region.region_id],
+                region_dir / transcript_zarr_rel,
             )
     logger.debug(
         "[_split_file_group] block=write_outputs done: elapsed=%.2fs total_elapsed=%.2fs",
@@ -1432,9 +1527,24 @@ def _existing_region_morphology(region_dir: Path) -> Path | None:
     return None
 
 
+def _existing_region_morphology_focus(region_dir: Path) -> Path | None:
+    for file_name in ("morphology_focus.ome.tif", "morphology_focus.ome.tiff"):
+        candidate = region_dir / file_name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _has_original_morphology_mip_input(input_files: list[Path]) -> bool:
     for path in input_files:
         if path.name.lower() in {"morphology_mip.ome.tif", "morphology_mip.ome.tiff"}:
+            return True
+    return False
+
+
+def _has_original_morphology_focus_input(input_files: list[Path]) -> bool:
+    for path in input_files:
+        if path.name.lower() in {"morphology_focus.ome.tif", "morphology_focus.ome.tiff"}:
             return True
     return False
 
@@ -1469,6 +1579,46 @@ def _ensure_region_morphology_mip_outputs(
                 file_type="image",
                 status="processed",
                 detail="Generated morphology_mip.ome.tif from cropped morphology.ome.tif",
+            )
+        )
+
+
+def _ensure_region_morphology_focus_outputs(
+    config: SplitConfig,
+    regions,
+    metrics: RunMetrics,
+    input_files: list[Path],
+) -> None:
+    if config.skip_images:
+        return
+    if _has_original_morphology_focus_input(input_files):
+        return
+
+    for region in regions:
+        region_dir = config.output_dir / f"region_{region.region_id}"
+        if _existing_region_morphology_focus(region_dir) is not None:
+            continue
+
+        morphology_path = _existing_region_morphology(region_dir)
+        if morphology_path is None:
+            continue
+
+        morphology_image = read_image(morphology_path, squash_layers=False)
+        focus_image, focus_stats = generate_morphology_focus_with_stats(morphology_image, morphology_path)
+        focus_path = region_dir / "morphology_focus.ome.tif"
+        write_array_as_ome_tiff(focus_image, focus_path, pixel_size_um=config.pixel_size_um)
+
+        if focus_stats is not None:
+            focus_by_region = metrics.extra.setdefault("focus_selection_by_region", {})
+            if isinstance(focus_by_region, dict):
+                focus_by_region[str(region.region_id)] = focus_stats
+
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(morphology_path.relative_to(config.output_dir)),
+                file_type="image",
+                status="processed",
+                detail="Generated morphology_focus.ome.tif from cropped morphology.ome.tif",
             )
         )
 
@@ -1955,6 +2105,8 @@ def _split_zarr(
                 "Schema-preserving filter failed for %s; copied source archive verbatim for compatibility.",
                 file_path.name,
             )
+        elif lower_name == "transcripts.zarr.zip":
+            _write_canonical_transcript_sidecars(destination.parent, subset, destination)
 
     if lower_name == "cell_feature_matrix.zarr.zip" and not config.write_cell_feature_matrix_zarr:
         metrics.files_skipped += 1

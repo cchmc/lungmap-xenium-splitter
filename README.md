@@ -46,6 +46,26 @@ xenium-splitter split \
 - `--convert-svs-to-ome`: If H&E is SVS, also emit an OME-TIFF per region.
 - `--squash-layers/--no-squash-layers`: Flatten multi-layer images when needed.
 
+xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images
+
+### Transcript Zarr Performance Options
+
+- `--rebuild-transcript-grids/--skip-transcript-grid-rebuild`: control whether `transcripts.zarr.zip` grids are rebuilt after filtering/rebasing.
+- `--rebuild-transcript-density/--skip-transcript-density-rebuild`: control density/gene CSR recomputation.
+- `--transcript-grid-max-levels N`: limit rebuilt grid pyramid depth (for example, `1` keeps only level 0).
+
+Fastest runtime mode (largest compatibility trade-off):
+
+```bash
+xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images --skip-transcript-grid-rebuild --skip-transcript-density-rebuild
+```
+
+Balanced mode (keep level 0 rebuild only):
+
+```bash
+xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images --transcript-grid-max-levels 1 --skip-transcript-density-rebuild
+```
+
 ### Temp Cleanup
 
 Remove temporary working directories created under the OS temp folder
@@ -85,6 +105,32 @@ output/
 - Files without recognized coordinate columns (for tabular) are skipped and documented in metadata.
 - Unknown binary formats are currently skipped.
 - SVS requires `openslide-python` and system OpenSlide libraries.
+
+## FOV Recalculation Rules
+
+When rebuilding transcript FOV assignments, `xenium-splitter` reads
+`instrument_sw_version` from `experiment.xenium` and uses these FOV dimensions
+(in pixels):
+
+- `< 1.2`: `4240` rows x `2960` cols
+- `>= 1.2`: `3520` rows x `2960` cols
+
+The FOV overlap is fixed at `128` pixels.
+
+- X stride: `2960 - 128 = 2832`
+- Y stride (`< 1.2`): `4240 - 128 = 4112`
+- Y stride (`>= 1.2`): `3520 - 128 = 3392`
+
+Potential FOV counts in each direction are computed from rebased transcript
+pixel coordinates (`x_px`, `y_px`) as:
+
+- `potential_fov_x = floor(max(x_px) / x_stride) + 1`
+- `potential_fov_y = floor(max(y_px) / y_stride) + 1`
+
+where `x_px = floor(x_um / pixel_size_um)` and `y_px = floor(y_um / pixel_size_um)`.
+
+For example, with `instrument_sw_version: 1.1.2.4`, the splitter uses the
+`< 1.2` rule: `4240 x 2960` FOVs, overlap `128`, strides `4112` (Y) and `2832` (X).
 
 ## Development
 

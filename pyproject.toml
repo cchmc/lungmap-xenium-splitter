@@ -13,7 +13,8 @@ authors = [
   { name = "xenium-splitter contributors" }
 ]
 dependencies = [
-  "numpy>=1.26",
+  "numpy>=1.26,<2",
+  "opencv-python-headless>=4.8,<4.12",
   "pandas>=2.2",
   "Pillow>=10.0",
   "shapely>=2.0",
@@ -35,6 +36,7 @@ dev = [
 [project.scripts]
 xenium-splitter = "xenium_splitter.cli:app"
 xenium-recalc-diffexp = "xenium_splitter.recalculate_diffexp:app"
+xenium-validate-transcripts-zarr = "xenium_splitter.validate_transcripts_zarr:app"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

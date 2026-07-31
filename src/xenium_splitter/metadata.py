@@ -293,13 +293,16 @@ def build_region_readme_markdown(
     config: SplitConfig,
     *,
     region_id: str,
+    region_bounds_um: tuple[float, float, float, float],
     region_area_um2: float,
     num_cells: int,
     num_transcripts: int,
     has_old_fov_to_new_fov: bool,
     has_transcript_id_fov_remap: bool,
     has_grid_overlays: bool,
+    focus_selection: dict | None = None,
 ) -> str:
+    min_x_um, min_y_um, max_x_um, max_y_um = region_bounds_um
     lines: list[str] = []
     lines.append(f"# Region {region_id}")
     lines.append("")
@@ -308,12 +311,18 @@ def build_region_readme_markdown(
     lines.append(
         f"This directory was created by xenium-splitter from `{config.input_dir}` using LASSO file `{config.lasso_file}` for region `{region_id}`."
     )
+    lines.append(
+        f"The region crop bounding box in source coordinates is xmin={min_x_um:.2f}, ymin={min_y_um:.2f}, xmax={max_x_um:.2f}, ymax={max_y_um:.2f} um."
+    )
     lines.append("")
     lines.append("## Processing Summary")
     lines.append("")
     lines.append(f"- Cells written: {num_cells}")
     lines.append(f"- Transcripts written: {num_transcripts}")
     lines.append(f"- Region area (um^2): {region_area_um2:.2f}")
+    lines.append(
+        f"- Region bounding box (um): xmin={min_x_um:.2f}, ymin={min_y_um:.2f}, xmax={max_x_um:.2f}, ymax={max_y_um:.2f}"
+    )
     lines.append(f"- Images skipped during run: {config.skip_images}")
     lines.append(f"- Grid overlays requested: {config.overlays}")
     lines.append(f"- Transcript archives copied verbatim: {config.copy_transcripts}")
@@ -322,7 +331,25 @@ def build_region_readme_markdown(
     lines.append("")
     lines.append("- Filtered transcript, cell, and boundary outputs are region-specific subsets of the original Xenium outputs.")
     lines.append("- When transcript coordinates are rebased, locations in region outputs are crop-local so they align with region image crops.")
+    lines.append(
+        f"- Coordinate rebasing subtracts the region crop origin (xmin={min_x_um:.2f}, ymin={min_y_um:.2f} um) from source-space coordinates."
+    )
     lines.append("- `experiment.xenium` and `_region_metadata.json` are updated to reflect region-level counts and area.")
+
+    if isinstance(focus_selection, dict) and focus_selection:
+        stack_count = int(focus_selection.get("stack_count", 0) or 0)
+        selected_index = int(focus_selection.get("selected_index", 0) or 0)
+        focus_scores = focus_selection.get("focus_scores")
+        lines.append("")
+        lines.append("## Morphology Focus Selection")
+        lines.append("")
+        lines.append(f"- Z stacks evaluated: {stack_count}")
+        lines.append(f"- Selected Z index: {selected_index}")
+        if isinstance(focus_scores, list) and focus_scores:
+            lines.append("- Focus score per Z plane:")
+            for idx, score in enumerate(focus_scores):
+                marker = " (selected)" if idx == selected_index else ""
+                lines.append(f"  - Z {idx}: {float(score):.6f}{marker}")
 
     explained_files: list[tuple[str, str]] = []
     if has_old_fov_to_new_fov:
