@@ -45,7 +45,7 @@ pip install -e ".[parquet,svs,hdf5,zarr,dev]"
 | `--he-image`           | None    | External H&E image to split alongside Xenium outputs (TIFF, OME-TIFF, SVS, PNG, JPEG). |
 | `--convert-svs-to-ome` | off     | When `--he-image` is an SVS file, also write a full-slide OME-TIFF per region.         |
 
-> **Note:** xenium-splitter does **not** perform H&E registration. The H&E image is assumed to already be spatially aligned with the Xenium coordinate space. No registration file, affine transform, or warping is applied. If your H&E requires registration to the morphology image, that step must be completed before running this tool.
+> **Note:** xenium-splitter does **not** perform H&E registration. The H&E image is assumed to already be spatially aligned with the Xenium coordinate space. No registration file, affine transform, or warping is applied. If your H&E requires registration to the morphology image, that step must be completed before running this tool. The H&E and morphology image can be different pixels sizes though, as the sizes are read and the H&E image scaled to the morphology dimensions and pixel size.
 
 **Optional — image processing:**
 
