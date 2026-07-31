@@ -1,0 +1,226 @@
+xenium-splitter Benchmark Report
+Generated : 2026-07-31 14:23:07
+Log dir   : /hpc/logs/xenium_benchmark
+
+Processing 6 run record(s)...
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+Name                Mode        Status   Wall     CPU      PeakRAM(GB) AvgRAM(GB) Regions Cells    Transcripts  Files ok Files failH&E(GB)  Output(GB) 
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+GSM7990532_full     data_only   SUCCESS  12m15s   11m02s   31.6        22.1       5       45K      4.5M         142      1         -        8.3        
+GSM7990532_full     with_images TIMEOUT  6h00m00s -        -           -          -       -        -            -        -         2.2      -          
+GSM7990532_small    data_only   SUCCESS  2m30s    2m15s    12.4        8.2        3       5K       500K         87       0         -        1.2        
+GSM7990532_small    with_images SUCCESS  8m20s    6m45s    27.8        18.3       3       5K       500K         90       0         2.2      4.8        
+large_slide_A       data_only   SUCCESS  45m30s   43m12s   57.4        40.8       8       320K     52.0M        198      0         -        24.7       
+large_slide_A       with_images MEMLIMIT 1h23m20s -        118.4       -          -       -        -            -        -         6.8      -          
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+============================================================
+  STATISTICS
+============================================================
+  Total runs     : 6
+  Successful     : 4
+  Failed         : 0
+  Other (running/timeout/memlimit/missing): 2
+
+  Mode: data_only (3 successful run(s))
+    Wall time  : min=2m30s  max=45m30s  avg=20m05s
+    Peak RAM   : min=12.4 GB  max=57.4 GB  avg=33.8 GB
+
+  Mode: with_images (1 successful run(s))
+    Wall time  : min=8m20s  max=8m20s  avg=8m20s
+    Peak RAM   : min=27.8 GB  max=27.8 GB  avg=27.8 GB
+
+
+============================================================
+  PER-RUN DETAILS
+============================================================
+
+============================================================
+  xsplit_GSM7990532_full_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_full  (mode=data_only)
+  Job ID       : 1482735
+  Output dir   : /hpc/benchmark_outputs/GSM7990532_full_data_only
+
+  Timing
+    Wall clock : 12m15s  (735s)
+    CPU time   : 11m02s  (662s)
+    Splitter   : 12m12s (internal timer)
+
+  Memory
+    Peak RAM   : 31.6 GB  (requested 32 GB)
+    Avg  RAM   : 22.1 GB
+
+  xenium-splitter
+    Regions    : 5
+    Cells      : 45K
+    Transcripts: 4.5M
+    Files ok   : 142  skipped=18  failed=1  (discovered=161)
+    Slowest    : transcripts.zarr.zip (312.7s)
+
+  File sizes
+    H&E image  : - GB
+    Morphology : 0.9 GB
+    Output dir : 8.3 GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_data_only.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_data_only.err
+
+============================================================
+  xsplit_GSM7990532_full_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSM7990532_full  (mode=with_images)
+  Job ID       : 1482736
+  Output dir   : /hpc/benchmark_outputs/GSM7990532_full_with_images
+
+  Timing
+    Wall clock : 6h00m00s  (21600s)
+    CPU time   : -
+
+  Memory
+    Peak RAM   : - GB  (requested 64 GB)
+    Avg  RAM   : - GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : 2.2 GB
+    Morphology : - GB
+    Output dir : - GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_with_images.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_with_images.err
+
+============================================================
+  xsplit_GSM7990532_small_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_small  (mode=data_only)
+  Job ID       : 1482733
+  Output dir   : /hpc/benchmark_outputs/GSM7990532_small_data_only
+
+  Timing
+    Wall clock : 2m30s  (150s)
+    CPU time   : 2m15s  (135s)
+    Splitter   : 2m28s (internal timer)
+
+  Memory
+    Peak RAM   : 12.4 GB  (requested 16 GB)
+    Avg  RAM   : 8.2 GB
+
+  xenium-splitter
+    Regions    : 3
+    Cells      : 5K
+    Transcripts: 500K
+    Files ok   : 87  skipped=12  failed=0  (discovered=99)
+    Slowest    : transcripts.zarr.zip (45.3s)
+
+  File sizes
+    H&E image  : - GB
+    Morphology : 0.4 GB
+    Output dir : 1.2 GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_data_only.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_data_only.err
+
+============================================================
+  xsplit_GSM7990532_small_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_small  (mode=with_images)
+  Job ID       : 1482734
+  Output dir   : /hpc/benchmark_outputs/GSM7990532_small_with_images
+
+  Timing
+    Wall clock : 8m20s  (500s)
+    CPU time   : 6m45s  (405s)
+    Splitter   : 8m17s (internal timer)
+
+  Memory
+    Peak RAM   : 27.8 GB  (requested 32 GB)
+    Avg  RAM   : 18.3 GB
+
+  xenium-splitter
+    Regions    : 3
+    Cells      : 5K
+    Transcripts: 500K
+    Files ok   : 90  skipped=9  failed=0  (discovered=99)
+    Slowest    : morphology.ome.tif (145.2s)
+
+  File sizes
+    H&E image  : 2.2 GB
+    Morphology : 0.4 GB
+    Output dir : 4.8 GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_with_images.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_with_images.err
+
+============================================================
+  xsplit_large_slide_A_data_only  [SUCCESS]
+============================================================
+  Dataset      : large_slide_A  (mode=data_only)
+  Job ID       : 1482737
+  Output dir   : /hpc/benchmark_outputs/large_slide_A_data_only
+
+  Timing
+    Wall clock : 45m30s  (2730s)
+    CPU time   : 43m12s  (2592s)
+    Splitter   : 45m26s (internal timer)
+
+  Memory
+    Peak RAM   : 57.4 GB  (requested 64 GB)
+    Avg  RAM   : 40.8 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 320K
+    Transcripts: 52.0M
+    Files ok   : 198  skipped=22  failed=0  (discovered=220)
+    Slowest    : transcripts.zarr.zip (1824.5s)
+
+  File sizes
+    H&E image  : - GB
+    Morphology : 1.8 GB
+    Output dir : 24.7 GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_data_only.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_data_only.err
+
+============================================================
+  xsplit_large_slide_A_with_images  [MEMLIMIT]
+============================================================
+  Dataset      : large_slide_A  (mode=with_images)
+  Job ID       : 1482738
+  Output dir   : /hpc/benchmark_outputs/large_slide_A_with_images
+
+  Timing
+    Wall clock : 1h23m20s  (5000s)
+    CPU time   : -
+
+  Memory
+    Peak RAM   : 118.4 GB  (requested 128 GB)
+    Avg  RAM   : - GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : 6.8 GB
+    Morphology : - GB
+    Output dir : - GB
+
+  Logs
+    stdout     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_with_images.out
+    stderr     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_with_images.err

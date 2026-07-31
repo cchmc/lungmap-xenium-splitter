@@ -1,0 +1,15 @@
+# xenium-splitter benchmark configuration
+# Lines starting with # are ignored.
+# Columns:
+#   name               - Short identifier used in job names and output paths (no spaces).
+#   input_dir          - Xenium output directory (the outs/ folder or equivalent).
+#   he_image           - Path to H&E image file. Leave blank if no H&E is available.
+#   lasso_file         - Path to LASSO region file (GeoJSON or CSV/TSV).
+#   walltime_data_only - LSF walltime for the --skip-images run  (HH:MM format).
+#   ram_gb_data_only   - RAM in GB for the --skip-images run.
+#   walltime_with_images - LSF walltime for the full run including images (HH:MM format).
+#   ram_gb_with_images - RAM in GB for the full run including images.
+name,input_dir,he_image,lasso_file,walltime_data_only,ram_gb_data_only,walltime_with_images,ram_gb_with_images
+GSM7990532_small,/path/to/GSM7990532/outs,,/path/to/lasso_slim.csv,1:00,16,2:00,32
+GSM7990532_full,/path/to/GSM7990532/outs,/path/to/he_image.svs,/path/to/lasso.csv,2:00,32,6:00,64
+large_slide_A,/path/to/slide_A/outs,/path/to/slide_A_he.ome.tif,/path/to/slide_A_lasso.geojson,4:00,64,12:00,128
