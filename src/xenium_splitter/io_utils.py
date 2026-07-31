@@ -78,6 +78,11 @@ def iter_input_files(input_dir: Path) -> list[Path]:
 
 
 def classify_file(path: Path) -> str:
+    """Return a file-type string for ``path`` based on name and extension.
+
+    Returns one of: ``"image"``, ``"tabular"``, ``"zarr"``, ``"hdf5"``, or
+    ``"unknown"``.
+    """
     lower_name = path.name.lower()
     if lower_name.endswith(".ome.tif") or lower_name.endswith(".ome.tiff"):
         return "image"
@@ -97,6 +102,19 @@ def classify_file(path: Path) -> str:
 
 
 def read_table(path: Path) -> pd.DataFrame:
+    """Read a tabular file (CSV, TSV, gzipped CSV/TSV, or Parquet) into a DataFrame.
+
+    Lines starting with ``#`` are treated as comments and ignored for CSV/TSV files.
+
+    Args:
+        path: Path to the input file.
+
+    Returns:
+        Parsed DataFrame.
+
+    Raises:
+        ValueError: If the file extension is not recognised.
+    """
     suffix = path.suffix.lower()
     lower_name = path.name.lower()
     
@@ -114,6 +132,18 @@ def read_table(path: Path) -> pd.DataFrame:
 
 
 def write_table(df: pd.DataFrame, output_path: Path) -> None:
+    """Write a DataFrame to a tabular file, inferring format from the file extension.
+
+    Supported extensions: ``.csv.gz``, ``.tsv.gz``, ``.csv``, ``.tsv``, ``.txt``,
+    ``.parquet``.  The parent directory is created if it does not exist.
+
+    Args:
+        df: DataFrame to write.
+        output_path: Destination path; extension determines the output format.
+
+    Raises:
+        ValueError: If the file extension is not recognised.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     suffix = output_path.suffix.lower()
     lower_name = output_path.name.lower()
@@ -137,6 +167,13 @@ def write_table(df: pd.DataFrame, output_path: Path) -> None:
 
 
 def detect_xy_columns(df: pd.DataFrame) -> tuple[str, str] | None:
+    """Find a recognised x/y coordinate column pair in ``df``.
+
+    Checks a priority-ordered list of common Xenium and Visium column name pairs.
+    The comparison is case-insensitive.  Returns the first matching pair using the
+    actual column names (preserving original casing), or ``None`` when no recognised
+    pair is present.
+    """
     columns_by_lower = {str(c).lower(): c for c in df.columns}
 
     candidate_pairs = [
@@ -366,6 +403,11 @@ def _get_transcript_cell_id_column(
     df: pd.DataFrame,
     region_cell_ids_by_region: dict[str, set[str]] | None,
 ) -> str | None:
+    """Return the name of the cell assignment column in a transcript table, or ``None``.
+
+    Returns ``None`` when ``region_cell_ids_by_region`` is not provided (disabled
+    optimisation) or when no recognised cell-assignment column is found.
+    """
     if region_cell_ids_by_region is None:
         return None
     for candidate in ["cell_id", "barcode", "cell", "transcript_cell_id"]:
@@ -383,6 +425,26 @@ def _build_transcript_region_mask(
     assigned_known: pd.Series | None,
     region_cells: set[str] | None,
 ) -> pd.Series:
+    """Build a boolean inclusion mask for transcripts in a single region.
+
+    Assignment policy:
+    - Assigned transcripts (``assigned_known == True``) are included if their
+      cell ID appears in ``region_cells``; they are excluded otherwise.
+    - Unassigned transcripts (no cell ID) are evaluated with a bounding-box
+      pre-filter followed by exact polygon containment testing.
+
+    Args:
+        region: Target :class:`LassoRegion`.
+        x_vals: Numeric x-coordinate series for all transcript rows.
+        y_vals: Numeric y-coordinate series for all transcript rows.
+        base_false_mask: All-False Series with the same index as the transcript table.
+        cell_ids: Normalised string cell-ID series, or ``None`` when unavailable.
+        assigned_known: Boolean Series indicating rows with a valid cell assignment.
+        region_cells: Set of cell IDs in this region, or ``None``.
+
+    Returns:
+        Boolean inclusion mask (same index as input Series).
+    """
     if cell_ids is not None and assigned_known is not None:
         # Trust assignment when present:
         # - assigned + in-region cell -> keep
@@ -2299,6 +2361,12 @@ def _extract_entity_ids_from_vertices(
     region: LassoRegion,
     id_col: str,
 ) -> set[str]:
+    """Extract entity IDs whose vertex-based boundary polygon intersects the region.
+
+    Groups ``table`` by ``id_col`` and builds a Shapely polygon from the
+    ``vertex_x``/``vertex_y`` columns for each entity.  Entities whose polygon
+    intersects the region polygon are included in the result.
+    """
     ids_in_region: set[str] = set()
     for entity_id, group in table.groupby(id_col, sort=False):
         try:
@@ -2314,6 +2382,11 @@ def _extract_entity_ids_from_vertices(
 
 
 def _polygon_from_vertex_rows(group: pd.DataFrame) -> Polygon | None:
+    """Build a Shapely Polygon from a group of rows with ``vertex_x``/``vertex_y`` columns.
+
+    Returns ``None`` when fewer than 3 valid (non-NaN) vertices are present, or
+    when the resulting geometry is empty after validity repair.
+    """
     vertices = list(
         zip(
             pd.to_numeric(group["vertex_x"], errors="coerce"),
@@ -2338,6 +2411,11 @@ def _extract_entity_ids_from_wkt(
     id_col: str,
     polygon_col: str,
 ) -> set[str]:
+    """Extract entity IDs whose WKT boundary polygon intersects the region.
+
+    Parses each row's WKT polygon from ``polygon_col`` and tests intersection
+    with the region polygon.  Rows that cannot be parsed are silently skipped.
+    """
     ids_in_region: set[str] = set()
     for _, row in table.iterrows():
         try:
@@ -2438,6 +2516,19 @@ def get_cell_feature_matrix_files(group_dir: Path) -> dict[str, Path | None]:
 
 
 def read_mtx_file(path: Path) -> tuple[list[list[int]], tuple[int, int, int]]:
+    """Read a Matrix Market (MTX) sparse-matrix file.
+
+    Parses the 10X Genomics variant with a ``%metadata_json:`` comment line.
+    Skips the header and metadata lines, reads the dimension row, then reads
+    all ``(row, col, value)`` data rows (all 1-indexed per MTX spec).
+
+    Args:
+        path: Path to ``.mtx`` or ``.mtx.gz`` file.
+
+    Returns:
+        ``(data_rows, (num_features, num_barcodes, num_values))`` where
+        ``data_rows`` is a list of ``[row, col, value]`` triples.
+    """
     # Expected MTX layout:
     # - Header: %%MatrixMarket matrix coordinate integer general
     # - Metadata: %metadata_json: {...}

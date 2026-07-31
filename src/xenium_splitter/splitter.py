@@ -220,6 +220,12 @@ def _drop_negative_rebased_transcripts(
 
 
 def _always_skip_rule_for_path(relative_path: Path) -> str | None:
+    """Return the always-skip rule name for ``relative_path``, or ``None`` if none applies.
+
+    Currently suppresses anything under an ``aux_outputs/`` directory, which
+    contains large Xenium auxiliary files that are not useful for downstream
+    analysis of sub-regions.
+    """
     parts_lower = {part.lower() for part in relative_path.parts}
     if "aux_outputs" in parts_lower:
         return "aux_outputs/**"
@@ -227,6 +233,7 @@ def _always_skip_rule_for_path(relative_path: Path) -> str | None:
 
 
 def _record_always_skipped(metrics: RunMetrics, rule: str, relative_path: Path) -> None:
+    """Record ``relative_path`` as skipped under the given hard-coded ``rule`` in metrics."""
     by_rule = metrics.extra.setdefault("always_skipped_by_rule", {})
     if not isinstance(by_rule, dict):
         by_rule = {}
@@ -237,6 +244,7 @@ def _record_always_skipped(metrics: RunMetrics, rule: str, relative_path: Path) 
 
 
 def _format_elapsed(seconds: float) -> str:
+    """Format a duration in seconds as a compact string for log messages."""
     return f"{seconds:.2f}s"
 
 
@@ -258,6 +266,7 @@ def _run_logged_task(task_name: str, script_started_perf: float, fn):
 
 
 def _log_boundary_files(boundary_files: dict[str, Path], input_dir: Path) -> None:
+    """Log the discovered boundary files or a message when none are found."""
     if boundary_files:
         for entity_type, boundary_file in sorted(boundary_files.items()):
             logger.info(
@@ -275,6 +284,12 @@ def _write_region_entity_ids_and_counts(
     metrics: RunMetrics,
     region_entity_ids: dict[str, dict[str, set[str]]],
 ) -> None:
+    """Write per-entity-type ID lists for each region and record counts in metrics.
+
+    Creates ``entity_ids/<entity_type>_ids.txt`` files under each region output
+    directory and populates ``metrics.extra`` with per-region and aggregate entity
+    counts so they appear in the run metadata README.
+    """
     all_entity_types = sorted(
         {
             entity_type
@@ -310,6 +325,17 @@ def _write_region_entity_ids_and_counts(
 
 
 def _collect_original_entity_totals(boundary_files: dict[str, Path]) -> dict[str, int]:
+    """Count the unique entity IDs across all boundary files in the original dataset.
+
+    Used to report what fraction of the original entities are captured across
+    all split regions.
+
+    Args:
+        boundary_files: Mapping of entity type to boundary file path.
+
+    Returns:
+        Mapping of entity type to total unique ID count.
+    """
     totals_by_entity: dict[str, int] = {}
     for entity_type, boundary_file in boundary_files.items():
         try:
@@ -332,6 +358,19 @@ def _extract_region_entity_ids(
     regions,
     boundary_files: dict[str, Path],
 ) -> dict[str, dict[str, set[str]]]:
+    """Extract entity IDs from boundary files for each LASSO region.
+
+    For every combination of region and entity type, finds entities whose boundary
+    polygons intersect the region polygon.  Results are used to filter tabular
+    outputs by pre-computed IDs rather than coordinate containment tests.
+
+    Args:
+        regions: List of :class:`LassoRegion` objects.
+        boundary_files: Mapping of entity type to boundary file path.
+
+    Returns:
+        Nested mapping: ``{region_id: {entity_type: set_of_id_strings}}``.
+    """
     region_entity_ids: dict[str, dict[str, set[str]]] = {}
     for region in regions:
         region_entity_ids[region.region_id] = {}
@@ -351,6 +390,13 @@ def _process_cell_feature_matrix_groups(
     region_entity_ids: dict[str, dict[str, set[str]]],
     script_started_perf: float,
 ) -> list[Path]:
+    """Find and process all cell_feature_matrix bundles, returning their component paths.
+
+    Each bundle is split as a unit (barcodes, features, matrix, zarr) so the
+    sparse matrix is filtered consistently from a single barcode list.  Returns
+    the list of all component file paths that were handled, allowing the main
+    file loop to skip them later.
+    """
     bundles = _find_cell_feature_matrix_bundles(input_dir)
     processed_files: list[Path] = []
     for cfm_dir, cfm_h5, cfm_zarr_zip in bundles:
@@ -384,6 +430,12 @@ def _apply_recalculated_diffexp_metric_update(
     region_id: str,
     row_count: int,
 ) -> None:
+    """Update or create a FileMetric entry to reflect a recalculated diffexp file.
+
+    If an existing metric entry for ``source_path`` is found it is updated
+    in-place (status set to ``"re-calculated"``), adjusting skip/process counters
+    accordingly.  Otherwise a new entry is appended.
+    """
     for item in metrics.file_metrics:
         if item.source_path != source_path:
             continue
@@ -417,11 +469,18 @@ def _merge_recalculated_diffexp_metrics(
     region_id: str,
     written: dict[str, int],
 ) -> None:
+    """Merge diffexp recalculation results into ``metrics`` for all written files."""
     for source_path, row_count in written.items():
         _apply_recalculated_diffexp_metric_update(metrics, source_path, region_id, row_count)
 
 
 def _recalculate_diffexp_for_regions(config: SplitConfig, regions, metrics: RunMetrics) -> None:
+    """Re-run differential-expression calculation for every region output directory.
+
+    Skipped when ``config.recalculate_diffexp`` is ``False``.  Warnings are
+    logged for regions where the required inputs (cell_feature_matrix and
+    clustering outputs) are not yet present.
+    """
     if not config.recalculate_diffexp:
         return
 
@@ -441,6 +500,11 @@ def _recalculate_diffexp_for_regions(config: SplitConfig, regions, metrics: RunM
 
 
 def _find_region_table_path(region_dir: Path, stem: str) -> Path | None:
+    """Find the first existing tabular file with the given stem in ``region_dir``.
+
+    Checks candidates in priority order: Parquet, then gzipped CSV/TSV, then
+    plain CSV/TSV/TXT.
+    """
     candidates = [
         region_dir / f"{stem}.parquet",
         region_dir / f"{stem}.csv.gz",
@@ -453,6 +517,7 @@ def _find_region_table_path(region_dir: Path, stem: str) -> Path | None:
 
 
 def _count_region_rows(region_dir: Path, stem: str) -> int:
+    """Return the number of rows in a tabular file within ``region_dir``, or 0 if absent."""
     table_path = _find_region_table_path(region_dir, stem)
     if table_path is None:
         return 0
@@ -468,6 +533,14 @@ def _update_region_metadata_outputs(
     regions,
     metrics: RunMetrics,
 ) -> None:
+    """Finalise per-region metadata after all files have been split.
+
+    For each region this function:
+    - Copies ``gene_panel.json`` from the source run.
+    - Counts cells and transcripts written.
+    - Updates ``experiment.xenium`` and ``_region_metadata.json`` with region-level counts.
+    - Writes a ``README.md`` summarising region provenance and processing.
+    """
     for region in regions:
         region_id = str(region.region_id)
         region_dir = config.output_dir / f"region_{region_id}"
@@ -523,6 +596,30 @@ def _update_region_metadata_outputs(
 
 
 def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
+    """Execute a full xenium-splitter run for the given configuration.
+
+    Pipeline stages (in order):
+    1. Load pixel size from ``experiment.xenium``.
+    2. Parse LASSO regions from the lasso file.
+    3. Compute FOV layout summary.
+    4. Find boundary files and extract per-region entity ID sets.
+    5. Process ``cell_feature_matrix`` bundles as a unit.
+    6. Select and filter remaining input files.
+    7. Split grouped multi-format files (cells, transcripts, boundaries) read-once.
+    8. Process remaining individual files.
+    9. Split optional external H&E image.
+    10. Generate ``morphology_mip`` / ``morphology_focus`` outputs where missing.
+    11. Write morphology grid overlays (when ``config.overlays`` is set).
+    12. Recalculate diffexp outputs.
+    13. Write per-region and run-level metadata.
+
+    Args:
+        config: Fully populated :class:`SplitConfig`.
+
+    Returns:
+        ``(metrics, metadata_path)`` where ``metadata_path`` is the written
+        ``run_metadata_README.md``.
+    """
     started_at = datetime.now(timezone.utc)
     script_started_perf = time.perf_counter()
     config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -701,6 +798,12 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
 
 
 def _select_input_files(config: SplitConfig) -> list[Path]:
+    """Return the list of input files to process.
+
+    When ``config.include_globs`` is empty all files under ``config.input_dir``
+    are returned via :func:`iter_input_files`.  Otherwise only files matching at
+    least one of the provided glob patterns are included.
+    """
     if not config.include_globs:
         return iter_input_files(config.input_dir)
 
@@ -1447,6 +1550,12 @@ def _split_image(
     config: SplitConfig,
     metrics: RunMetrics,
 ) -> None:
+    """Crop and mask an image file to each region and write the outputs.
+
+    For formats that support windowed reads (TIFF, OME-TIFF, SVS) the image is
+    read once per region using windowed I/O to minimise memory usage.  For all
+    other formats the full image is read once and then cropped in memory.
+    """
     if supports_windowed_region_read(file_path):
         for region in regions:
             cropped = read_masked_cropped_region(
@@ -1476,6 +1585,12 @@ def _split_image(
 
 
 def _split_external_he_image(config: SplitConfig, regions, metrics: RunMetrics) -> None:
+    """Crop and write the externally supplied H&E image to each region output directory.
+
+    The output is always written as an OME-TIFF (``<stem>.ome.tif``) regardless
+    of the source format.  Windowed reads are used for TIFF and SVS files;
+    other formats are read fully into memory and then cropped.
+    """
     assert config.he_image is not None
     he_image = config.he_image
     if supports_windowed_region_read(he_image):

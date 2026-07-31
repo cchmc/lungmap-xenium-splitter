@@ -6,6 +6,12 @@ from xenium_splitter.models import RunMetrics, SplitConfig
 
 
 def _append_boundary_entity_counts(lines: list[str], metrics: RunMetrics) -> None:
+    """Append a Markdown table of per-region boundary entity counts to ``lines``.
+
+    Reads ``entity_counts_by_region``, ``entity_counts_totals``, and
+    ``entity_counts_original_totals`` from ``metrics.extra``.  Does nothing when
+    count data is absent.
+    """
     counts_by_region = metrics.extra.get("entity_counts_by_region")
     totals_by_entity = metrics.extra.get("entity_counts_totals")
     total_all_entities = metrics.extra.get("entity_counts_total_all")
@@ -57,6 +63,12 @@ def _append_boundary_entity_counts(lines: list[str], metrics: RunMetrics) -> Non
 
 
 def _append_timing_breakdown(lines: list[str], metrics: RunMetrics) -> None:
+    """Append Markdown timing tables (pipeline stages, file types, slowest files) to ``lines``.
+
+    Reads ``timing_stage_seconds``, ``timing_file_type_seconds``, ``timing_file_type_counts``,
+    and ``timing_slowest_files`` from ``metrics.extra``.  Does nothing when no timing data
+    is present.
+    """
     stage_times = metrics.extra.get("timing_stage_seconds")
     file_type_times = metrics.extra.get("timing_file_type_seconds")
     file_type_counts = metrics.extra.get("timing_file_type_counts")
@@ -109,6 +121,12 @@ def _append_timing_breakdown(lines: list[str], metrics: RunMetrics) -> None:
 
 
 def _append_fov_layout_section(lines: list[str], metrics: RunMetrics) -> None:
+    """Append a Markdown FOV layout summary section to ``lines``.
+
+    Reads ``fov_layout_summary`` from ``metrics.extra`` and renders instrument
+    version, pixel size, FOV dimensions, stride, and per-region potential FOV
+    counts.  Does nothing when the summary is absent.
+    """
     summary = metrics.extra.get("fov_layout_summary")
     if not isinstance(summary, dict) or not summary:
         return
@@ -150,6 +168,11 @@ def _append_fov_layout_section(lines: list[str], metrics: RunMetrics) -> None:
 
 
 def _append_always_skipped_section(lines: list[str], metrics: RunMetrics) -> None:
+    """Append a Markdown table listing files skipped by hard-coded rules to ``lines``.
+
+    Reads ``always_skipped_by_rule`` from ``metrics.extra`` (a dict mapping rule
+    name to a list of example paths).  Does nothing when no always-skip rules fired.
+    """
     by_rule = metrics.extra.get("always_skipped_by_rule")
     if not isinstance(by_rule, dict) or not by_rule:
         return
@@ -174,6 +197,11 @@ def _append_always_skipped_section(lines: list[str], metrics: RunMetrics) -> Non
 
 
 def _append_per_region_sections(lines: list[str], metrics: RunMetrics) -> None:
+    """Append per-region summary sections (row counts, entity counts, processing time) to ``lines``.
+
+    Collects region IDs from both ``file_metrics`` rows-by-region data and the
+    ``entity_counts_by_region`` extra key so every region with any output is represented.
+    """
     region_ids: set[str] = set()
     counts_by_region = metrics.extra.get("entity_counts_by_region")
     if isinstance(counts_by_region, dict):
@@ -230,6 +258,21 @@ def build_run_metadata_markdown(
     started_at: datetime,
     completed_at: datetime,
 ) -> str:
+    """Build the full run-metadata README as a Markdown string.
+
+    Includes timing, inputs, parameters, summary metrics, optional FOV layout,
+    entity counts, always-skipped files, per-file results table, per-region
+    summaries, and timing breakdown sections.
+
+    Args:
+        config: The :class:`SplitConfig` used for this run.
+        metrics: Populated :class:`RunMetrics` from the completed run.
+        started_at: UTC timestamp when the run started.
+        completed_at: UTC timestamp when the run finished.
+
+    Returns:
+        Markdown text ending with a newline.
+    """
     duration_s = (completed_at - started_at).total_seconds()
 
     lines: list[str] = []
@@ -302,6 +345,28 @@ def build_region_readme_markdown(
     has_grid_overlays: bool,
     focus_selection: dict | None = None,
 ) -> str:
+    """Build the per-region README as a Markdown string.
+
+    Describes the region's creation provenance, bounding box, processing
+    summary (cell/transcript counts), coordinate rebasing notes, and
+    optionally a morphology focus-selection summary.
+
+    Args:
+        config: The :class:`SplitConfig` used for this run.
+        region_id: Region identifier string.
+        region_bounds_um: ``(min_x, min_y, max_x, max_y)`` in micrometers.
+        region_area_um2: Region polygon area in square micrometers.
+        num_cells: Number of cells written to this region output.
+        num_transcripts: Number of transcripts written to this region output.
+        has_old_fov_to_new_fov: Whether ``old_fov_to_new_fov.csv`` was produced.
+        has_transcript_id_fov_remap: Whether ``transcripts_id_fov_remap.csv.gz`` was produced.
+        has_grid_overlays: Whether a ``grid_overlays/`` directory was produced.
+        focus_selection: Optional dict from :func:`generate_morphology_focus_with_stats`
+            containing Z-plane focus scores and selected index.
+
+    Returns:
+        Markdown text ending with a newline.
+    """
     min_x_um, min_y_um, max_x_um, max_y_um = region_bounds_um
     lines: list[str] = []
     lines.append(f"# Region {region_id}")

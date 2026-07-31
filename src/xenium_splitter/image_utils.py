@@ -37,6 +37,19 @@ logger = logging.getLogger(__name__)
 
 
 def read_image(path: Path, squash_layers: bool = True) -> np.ndarray:
+    """Read an image file into a NumPy array.
+
+    Supports SVS (via ``openslide``), TIFF/OME-TIFF (via ``tifffile``), and
+    common raster formats (PNG, JPEG, etc.) via Pillow.  Multi-layer arrays
+    are max-projected when ``squash_layers`` is ``True``.
+
+    Args:
+        path: Path to the image file.
+        squash_layers: When ``True``, flatten multi-dimensional stacks to 2D/3D.
+
+    Returns:
+        Image as a NumPy array (H × W or H × W × C).
+    """
     lower_name = path.name.lower()
     if path.suffix.lower() == ".svs":
         return _read_svs(path)
@@ -50,6 +63,11 @@ def read_image(path: Path, squash_layers: bool = True) -> np.ndarray:
 
 
 def supports_windowed_region_read(path: Path) -> bool:
+    """Return ``True`` when the image format supports windowed (partial) region reads.
+
+    Windowed reading avoids loading the full image when only a small region crop
+    is needed.  Currently supported for TIFF/OME-TIFF and SVS files.
+    """
     lower_name = path.name.lower()
     return path.suffix.lower() == ".svs" or lower_name.endswith(
         (".tif", ".tiff", ".ome.tif", ".ome.tiff")
@@ -62,6 +80,21 @@ def read_masked_cropped_region(
     pixel_size_um: float | None = None,
     squash_layers: bool = True,
 ) -> np.ndarray:
+    """Read, crop, and mask a single polygon region from an image file.
+
+    Dispatches to the appropriate windowed reader for TIFF/SVS, or falls back
+    to a full-read + crop for other formats.
+
+    Args:
+        path: Path to the source image.
+        polygon: Region polygon in coordinate space (micrometers).
+        pixel_size_um: Pixel size in micrometers; used to convert polygon coordinates
+            to pixel indices.  ``None`` treats the polygon as already in pixel space.
+        squash_layers: Flatten multi-layer stacks when ``True``.
+
+    Returns:
+        Masked and cropped image array.
+    """
     if path.suffix.lower() == ".svs":
         return _read_masked_cropped_svs_region(path, polygon, pixel_size_um)
 
@@ -74,6 +107,7 @@ def read_masked_cropped_region(
 
 
 def _read_svs(path: Path) -> np.ndarray:
+    """Read a full SVS slide as an RGB NumPy array (requires ``openslide-python``)."""
     try:
         import openslide
     except ImportError as exc:
@@ -92,6 +126,11 @@ def _read_masked_cropped_svs_region(
     polygon: Polygon,
     pixel_size_um: float | None,
 ) -> np.ndarray:
+    """Read a polygon-bounded crop of an SVS slide, applying a binary mask.
+
+    Uses ``openslide`` windowed reads; only the bounding box of the polygon
+    is loaded from disk.
+    """
     try:
         import openslide
     except ImportError as exc:
@@ -333,6 +372,20 @@ def _apply_local_mask(
     local_polygon: Polygon,
     spatial_axes: tuple[int, int] | None = None,
 ) -> np.ndarray:
+    """Apply a binary polygon mask to a cropped image array.
+
+    Pixels outside the polygon interior are zeroed.  The mask is drawn with
+    Pillow and broadcast across non-spatial axes.
+
+    Args:
+        image: Cropped image array (2-D or higher).
+        local_polygon: Polygon whose coordinates are relative to the crop origin.
+        spatial_axes: ``(y_axis, x_axis)`` indices within ``image.shape``; inferred
+            when ``None``.
+
+    Returns:
+        Image array with out-of-polygon pixels set to zero.
+    """
     if image.ndim < 2:
         raise ValueError(f"Expected image array with at least 2 dims, got shape {image.shape}")
 
@@ -462,6 +515,22 @@ def save_image_like(
     image: np.ndarray,
     pixel_size_um: float | None = None,
 ) -> Path:
+    """Save ``image`` in a format that matches the source file's format.
+
+    - TIFF/OME-TIFF → pyramidal OME-TIFF (``_write_pyramidal_ome_tiff``).
+    - SVS → pyramidal OME-TIFF with ``YXC`` axes (SVS output not supported).
+    - Other raster formats → Pillow write using the original extension.
+
+    Args:
+        source_path: Original image path used to determine the output format.
+        output_path: Destination path; parent directories are created if needed.
+        image: Array to write.
+        pixel_size_um: Physical pixel size in micrometers; written to OME-XML
+            so the image registers correctly in Xenium Explorer.
+
+    Returns:
+        Actual path written (may differ from ``output_path`` for SVS inputs).
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     source_name = source_path.name.lower()
@@ -481,6 +550,11 @@ def save_image_like(
 
 
 def convert_svs_to_ome_tiff(svs_path: Path, output_path: Path) -> Path:
+    """Convert an SVS slide to a pyramidal OME-TIFF.
+
+    The full slide is read at the highest resolution level and written as a
+    tiled, pyramidal OME-TIFF with ``YXC`` axes.
+    """
     image = _read_svs(svs_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _write_pyramidal_ome_tiff(image, output_path, axes="YXC")
@@ -492,6 +566,19 @@ def write_array_as_ome_tiff(
     output_path: Path,
     pixel_size_um: float | None = None,
 ) -> Path:
+    """Write an image array as a pyramidal OME-TIFF.
+
+    Axes are inferred from the array shape.  Use :func:`save_image_like` when
+    you need to match the source format of an existing image file.
+
+    Args:
+        image: Array to write.
+        output_path: Destination path; parent directories are created if needed.
+        pixel_size_um: Physical pixel size in micrometers written to OME-XML.
+
+    Returns:
+        The path that was written.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     axes = _infer_write_axes(image)
     _write_pyramidal_ome_tiff(image, output_path, axes=axes, pixel_size_um=pixel_size_um)
@@ -499,6 +586,12 @@ def write_array_as_ome_tiff(
 
 
 def _infer_write_axes(image: np.ndarray, source_path: Path | None = None) -> str:
+    """Infer the OME-TIFF axis string for ``image``.
+
+    Reads the axis string from the source file's OME metadata when available.
+    Falls back to shape-based heuristics: ``YX`` (2-D), ``YXC`` (3-D RGB),
+    ``ZYX`` (3-D grayscale), ``TZYX`` (4-D), or ``ZYXC`` (4-D RGB).
+    """
     arr = np.asarray(image)
     source_axes = _get_tiff_axes(source_path) if source_path is not None else None
     if source_axes and len(source_axes) == arr.ndim:
@@ -518,6 +611,11 @@ def _infer_write_axes(image: np.ndarray, source_path: Path | None = None) -> str
 
 
 def _is_rgb_like(image: np.ndarray, axes: str | None = None) -> bool:
+    """Return ``True`` when ``image`` looks like an RGB or RGBA array.
+
+    When ``axes`` is provided the C axis is checked directly; otherwise a last
+    dimension of 3 or 4 is used as a heuristic.
+    """
     arr = np.asarray(image)
     if axes and len(axes) == arr.ndim:
         axes_lower = axes.lower()
@@ -530,6 +628,11 @@ def _is_rgb_like(image: np.ndarray, axes: str | None = None) -> bool:
 
 
 def _spatial_axes_for_array(image: np.ndarray, path: Path | None = None, axes: str | None = None) -> tuple[int, int]:
+    """Return ``(y_axis_index, x_axis_index)`` for a given array and optional axes string.
+
+    Uses OME axes metadata when available (from file or explicit argument),
+    then falls back to shape-based heuristics (last two non-color axes).
+    """
     arr = np.asarray(image)
     source_axes = axes or (_get_tiff_axes(path) if path is not None else None)
     if source_axes and len(source_axes) == arr.ndim:
@@ -549,6 +652,7 @@ def _trim_spatial_axes(
     target_h: int,
     target_w: int,
 ) -> np.ndarray:
+    """Crop ``image`` to ``target_h × target_w`` on the spatial axes (used before downsampling)."""
     slices = [slice(None)] * image.ndim
     y_axis, x_axis = spatial_axes
     slices[y_axis] = slice(0, target_h)
@@ -562,6 +666,7 @@ def _downsample_spatial_axes(
     out_h: int,
     out_w: int,
 ) -> np.ndarray:
+    """Halve resolution on spatial axes by 2×2 block averaging (used for pyramid levels)."""
     y_axis, x_axis = spatial_axes
     moved = np.moveaxis(image, (y_axis, x_axis), (-2, -1))
     lead_shape = moved.shape[:-2]
@@ -571,6 +676,7 @@ def _downsample_spatial_axes(
 
 
 def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
+    """Convert ``image`` to uint8, clipping float values to the [0, 255] range."""
     arr = np.asarray(image)
     if arr.dtype == np.uint8:
         return arr
@@ -580,11 +686,19 @@ def _coerce_for_pillow(image: np.ndarray) -> np.ndarray:
 
 
 def generate_morphology_mip(image: np.ndarray) -> np.ndarray:
-    """Generate a morphology MIP-style image from a cropped morphology image."""
+    """Generate a morphology maximum-intensity projection from a cropped morphology stack.
+
+    Delegates to :func:`_squash_if_needed` which applies max projection across
+    all non-spatial axes.
+    """
     return _squash_if_needed(np.asarray(image))
 
 
 def generate_morphology_focus(image: np.ndarray, path: Path | None = None) -> np.ndarray:
+    """Return the best-focus Z-plane from a morphology stack (discards focus stats).
+
+    See :func:`generate_morphology_focus_with_stats` for details.
+    """
     focus_image, _stats = generate_morphology_focus_with_stats(image, path)
     return focus_image
 
@@ -631,6 +745,12 @@ def generate_morphology_focus_with_stats(
 
 
 def _focus_plane_stack(image: np.ndarray, path: Path | None = None) -> np.ndarray | None:
+    """Reshape a multi-dimensional morphology array into a stack of 2-D (or RGB) planes.
+
+    Uses OME axis metadata to identify non-spatial (Z/T) axes and moves them to
+    the leading dimension.  Falls back to simple shape-based heuristics.
+    Returns ``None`` when the array is already 2-D or RGB.
+    """
     arr = np.asarray(image)
     axes = _get_tiff_axes(path) if path else None
 
@@ -662,6 +782,11 @@ def _focus_plane_stack(image: np.ndarray, path: Path | None = None) -> np.ndarra
 
 
 def _focus_plane_to_grayscale(plane: np.ndarray) -> np.ndarray:
+    """Convert a single focus plane to a float32 grayscale array for Laplacian scoring.
+
+    RGB/RGBA planes are converted with standard luminance weights (0.299R + 0.587G + 0.114B).
+    Multi-channel planes that are neither 2-D nor RGB are collapsed with max-projection.
+    """
     arr = np.asarray(plane)
     if arr.ndim == 2:
         return arr.astype(np.float32, copy=False)
@@ -676,6 +801,13 @@ def _resize_for_overlay(
     *,
     max_dimension_px: int,
 ) -> tuple[np.ndarray, float]:
+    """Downscale ``image`` so its longest edge is at most ``max_dimension_px``.
+
+    Returns the (possibly unchanged) image and the scale factor applied
+    (1.0 when no downscaling was needed, >1.0 when the image was shrunk).
+    The scale factor converts overlay pixel coordinates back to the original
+    resolution.
+    """
     if max_dimension_px <= 0:
         raise ValueError("max_dimension_px must be > 0")
 

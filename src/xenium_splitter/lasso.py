@@ -50,6 +50,22 @@ def load_lasso_regions(lasso_path: Path) -> list[LassoRegion]:
 
 
 def _load_geojson_regions(lasso_path: Path) -> list[LassoRegion]:
+    """Parse LASSO regions from a GeoJSON/JSON file.
+
+    Handles FeatureCollection, a single Feature, or a bare geometry object.
+    Each feature is converted to a single Polygon (MultiPolygon geometries are
+    reduced to their largest member). Features with empty or invalid geometries
+    are silently skipped.
+
+    Args:
+        lasso_path: Path to a ``.geojson`` or ``.json`` file.
+
+    Returns:
+        List of :class:`LassoRegion` objects, one per valid polygon feature.
+
+    Raises:
+        ValueError: If no valid polygon regions are found in the file.
+    """
     payload = json.loads(lasso_path.read_text(encoding="utf-8"))
     regions: list[LassoRegion] = []
 
@@ -144,6 +160,21 @@ def _load_tabular_regions(lasso_path: Path) -> list[LassoRegion]:
 
 
 def _load_regions_from_wkt(df: pd.DataFrame, columns: dict[str, str]) -> list[LassoRegion]:
+    """Build LassoRegion objects from a DataFrame with ``region_id`` and ``polygon_wkt`` columns.
+
+    Each row must contain a valid WKT polygon string.  Rows that produce an empty
+    or un-normalizable geometry are skipped.
+
+    Args:
+        df: Input DataFrame.
+        columns: Case-normalised column name mapping (``{lower_name: actual_name}``).
+
+    Returns:
+        List of :class:`LassoRegion` objects.
+
+    Raises:
+        ValueError: If no valid polygons can be parsed.
+    """
     regions: list[LassoRegion] = []
     for _, row in df.iterrows():
         region_id = str(row[columns["region_id"]])
@@ -160,6 +191,24 @@ def _load_regions_from_wkt(df: pd.DataFrame, columns: dict[str, str]) -> list[La
 
 
 def _load_regions_from_points(df: pd.DataFrame, columns: dict[str, str], region_id_col: str = "region_id") -> list[LassoRegion]:
+    """Build LassoRegion objects from a DataFrame with per-vertex x/y coordinates.
+
+    Rows are grouped by the region identifier column and each group is assembled
+    into a :class:`shapely.geometry.Polygon`.  Groups with fewer than 3 points
+    are skipped.  Invalid polygons are repaired with ``buffer(0)``.
+
+    Args:
+        df: Input DataFrame with at least a region ID column and x/y columns.
+        columns: Case-normalised column name mapping (``{lower_name: actual_name}``).
+        region_id_col: Lowercase name of the region identifier column
+            (``"region_id"`` or ``"selection"``).
+
+    Returns:
+        List of :class:`LassoRegion` objects, one per valid polygon.
+
+    Raises:
+        ValueError: If no valid polygons can be assembled.
+    """
     grouped = df.groupby(columns[region_id_col], sort=False)
     regions: list[LassoRegion] = []
 
@@ -181,6 +230,11 @@ def _load_regions_from_points(df: pd.DataFrame, columns: dict[str, str], region_
 
 
 def _normalize_to_polygon(geom: object) -> Polygon | None:
+    """Return a Polygon from a geometry, or ``None`` if the conversion is not possible.
+
+    For MultiPolygon inputs, the largest member by area is returned.  Any other
+    geometry type (Point, LineString, etc.) returns ``None``.
+    """
     if isinstance(geom, Polygon):
         return geom
     if isinstance(geom, MultiPolygon):

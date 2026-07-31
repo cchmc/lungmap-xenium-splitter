@@ -73,6 +73,11 @@ def recalculate_diffexp_for_region(
 
 
 def _bh_adjust(p_values: np.ndarray) -> np.ndarray:
+    """Apply Benjamini-Hochberg FDR correction to an array of p-values.
+
+    Returns an array of adjusted p-values in the same order as the input.
+    Values are clipped to [0, 1].
+    """
     p = np.asarray(p_values, dtype=float)
     n = p.size
     if n == 0:
@@ -95,6 +100,11 @@ def _bh_adjust(p_values: np.ndarray) -> np.ndarray:
 
 
 def _read_features(features_path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Read a 10X Genomics features file into ``(feature_ids, feature_names)`` arrays.
+
+    Supports plain and gzip-compressed TSV files.  Lines with a single field
+    are used as both ID and name.
+    """
     open_fn = gzip.open if str(features_path).endswith(".gz") else open
     rows: list[list[str]] = []
     with open_fn(features_path, "rt", encoding="utf-8") as f:
@@ -112,6 +122,16 @@ def _read_features(features_path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _load_expression_from_cfm(cfm_dir: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load expression matrix, barcodes, and feature metadata from a ``cell_feature_matrix`` directory.
+
+    Returns:
+        ``(expr, barcodes, feature_meta)`` where ``expr`` has shape
+        ``(n_features, n_cells)`` and ``feature_meta`` has shape ``(n_features, 2)``
+        with columns ``[feature_id, feature_name]``.
+
+    Raises:
+        ValueError: If required files (barcodes, features, matrix) are missing or dimensions mismatch.
+    """
     files = get_cell_feature_matrix_files(cfm_dir)
     if not files["barcodes"] or not files["features"] or not files["matrix"]:
         raise ValueError(f"Missing barcodes/features/matrix in {cfm_dir}")
@@ -139,6 +159,7 @@ def _load_expression_from_cfm(cfm_dir: Path) -> tuple[np.ndarray, np.ndarray, np
 
 
 def _decode_bytes_array(arr: np.ndarray) -> np.ndarray:
+    """Decode a NumPy array of bytes/bytearray elements to an object array of Python strings."""
     out: list[str] = []
     for value in arr:
         if isinstance(value, (bytes, bytearray)):
@@ -149,6 +170,19 @@ def _decode_bytes_array(arr: np.ndarray) -> np.ndarray:
 
 
 def _load_expression_from_cfm_h5(h5_path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load expression matrix, barcodes, and feature metadata from a ``cell_feature_matrix.h5`` file.
+
+    The HDF5 schema must contain a ``matrix`` group with ``barcodes``, ``data``,
+    ``indices``, ``indptr``, ``shape``, and ``features`` datasets (10X Genomics format).
+
+    Returns:
+        ``(expr, barcodes, feature_meta)`` where ``expr`` has shape
+        ``(n_features, n_cells)``.
+
+    Raises:
+        RuntimeError: If ``h5py`` is not installed.
+        ValueError: If the HDF5 schema is missing required datasets.
+    """
     try:
         import h5py
     except ImportError as exc:
@@ -186,6 +220,16 @@ def _load_expression_from_cfm_h5(h5_path: Path) -> tuple[np.ndarray, np.ndarray,
 
 
 def _normal_approx_pvals(group: np.ndarray, rest: np.ndarray) -> np.ndarray:
+    """Compute two-sided p-values using a normal approximation to Welch's t-test.
+
+    Args:
+        group: Expression matrix for cells in the cluster, shape ``(n_features, n_group)``.
+        rest: Expression matrix for all other cells, shape ``(n_features, n_rest)``.
+
+    Returns:
+        Array of p-values, one per feature.  Returns 1.0 for features where the
+        standard error is zero or either group has fewer than 2 cells.
+    """
     n1 = group.shape[1]
     n2 = rest.shape[1]
     if n1 < 2 or n2 < 2:
@@ -218,6 +262,28 @@ def _compute_diffexp_table(
     clusters_df: pd.DataFrame,
     pseudocount: float,
 ) -> pd.DataFrame:
+    """Compute a differential-expression table for all clusters.
+
+    For each unique cluster label, computes:
+    - Mean counts in cluster.
+    - Log2 fold change (cluster mean vs. all other cells, with ``pseudocount``).
+    - BH-adjusted p-value from a normal approximation to Welch's t-test.
+
+    Args:
+        expr: Expression matrix, shape ``(n_features, n_cells)``.
+        barcodes: Barcode array of length ``n_cells``.
+        feature_meta: Array of shape ``(n_features, 2)`` with columns
+            ``[feature_id, feature_name]``.
+        clusters_df: DataFrame with columns ``Barcode`` and ``Cluster``.
+        pseudocount: Small constant added to means before log2 to avoid log(0).
+
+    Returns:
+        DataFrame with one row per feature and three columns per cluster
+        (mean counts, log2 fold change, adjusted p-value).
+
+    Raises:
+        ValueError: If no barcodes overlap between ``clusters_df`` and the matrix.
+    """
     clusters_df = clusters_df.copy()
     clusters_df["Barcode"] = clusters_df["Barcode"].astype(str)
 
@@ -266,6 +332,7 @@ def _compute_diffexp_table(
 
 
 def _find_clustering_dirs(analysis_dir: Path) -> list[Path]:
+    """Return all clustering subdirectories that contain a ``clusters.csv`` file."""
     clustering_root = analysis_dir / "clustering"
     if not clustering_root.exists():
         return []

@@ -9,16 +9,26 @@ from shapely.geometry import Polygon
 
 @dataclass(slots=True)
 class LassoRegion:
+    """A named polygonal region parsed from a LASSO selection file."""
+
     region_id: str
     polygon: Polygon
 
     @property
     def bounds(self) -> tuple[float, float, float, float]:
+        """Return (min_x, min_y, max_x, max_y) bounding box of the polygon in coordinate units."""
         return self.polygon.bounds
 
 
 @dataclass(slots=True)
 class SplitConfig:
+    """Configuration for a single xenium-splitter run.
+
+    Collects all user-supplied options and is passed through the pipeline.
+    ``pixel_size_um`` is populated from ``experiment.xenium`` at runtime when not
+    provided by the caller.
+    """
+
     input_dir: Path
     lasso_file: Path
     output_dir: Path
@@ -36,6 +46,12 @@ class SplitConfig:
 
 @dataclass(slots=True)
 class FileMetric:
+    """Per-file processing record written to run metadata.
+
+    Tracks the outcome (status), filter method (detail), row counts, and wall-clock
+    duration for every file encountered during a split run.
+    """
+
     source_path: str
     file_type: str
     status: str
@@ -48,6 +64,13 @@ class FileMetric:
 
 @dataclass(slots=True)
 class RunMetrics:
+    """Aggregate statistics for a completed split run.
+
+    ``extra`` is an open-ended dict used by pipeline stages to attach structured
+    data (entity counts, timing breakdowns, FOV layout summaries, etc.) that is
+    later rendered into the run metadata README.
+    """
+
     files_total: int = 0
     files_processed: int = 0
     files_skipped: int = 0
