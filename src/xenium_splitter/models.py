@@ -27,6 +27,12 @@ class SplitConfig:
     Collects all user-supplied options and is passed through the pipeline.
     ``pixel_size_um`` is populated from ``experiment.xenium`` at runtime when not
     provided by the caller.
+
+    When ``images_only`` is ``True``, all data-processing stages (boundary
+    extraction, CFM filtering, tabular/zarr/HDF5 splitting, diffexp
+    recalculation) are skipped.  Only image cropping/masking, morphology MIP/
+    focus generation, and grid overlays are performed.  Mutually exclusive with
+    ``skip_images``.
     """
 
     input_dir: Path
@@ -42,6 +48,7 @@ class SplitConfig:
     recalculate_diffexp: bool = True
     write_cell_feature_matrix_zarr: bool = True
     copy_transcripts: bool = False
+    images_only: bool = False
 
 
 @dataclass(slots=True)

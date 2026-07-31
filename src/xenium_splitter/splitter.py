@@ -477,11 +477,12 @@ def _merge_recalculated_diffexp_metrics(
 def _recalculate_diffexp_for_regions(config: SplitConfig, regions, metrics: RunMetrics) -> None:
     """Re-run differential-expression calculation for every region output directory.
 
-    Skipped when ``config.recalculate_diffexp`` is ``False``.  Warnings are
-    logged for regions where the required inputs (cell_feature_matrix and
-    clustering outputs) are not yet present.
+    Skipped when ``config.recalculate_diffexp`` is ``False`` or when
+    ``config.images_only`` is ``True`` (no filtered matrix is produced in that mode).
+    Warnings are logged for regions where the required inputs (cell_feature_matrix
+    and clustering outputs) are not yet present.
     """
-    if not config.recalculate_diffexp:
+    if not config.recalculate_diffexp or config.images_only:
         return
 
     for region in regions:
@@ -603,18 +604,24 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     2. Parse LASSO regions from the lasso file.
     3. Compute FOV layout summary.
     4. Find boundary files and extract per-region entity ID sets.
+       *(skipped when* ``config.images_only`` *is* ``True`` *)*
     5. Process ``cell_feature_matrix`` bundles as a unit.
+       *(skipped when* ``config.images_only`` *is* ``True`` *)*
     6. Select and filter remaining input files.
     7. Split grouped multi-format files (cells, transcripts, boundaries) read-once.
-    8. Process remaining individual files.
+       *(recorded as skipped when* ``config.images_only`` *is* ``True`` *)*
+    8. Process remaining individual files (images always; data only when not images_only).
     9. Split optional external H&E image.
     10. Generate ``morphology_mip`` / ``morphology_focus`` outputs where missing.
     11. Write morphology grid overlays (when ``config.overlays`` is set).
     12. Recalculate diffexp outputs.
+        *(skipped when* ``config.images_only`` *is* ``True`` *)*
     13. Write per-region and run-level metadata.
 
     Args:
-        config: Fully populated :class:`SplitConfig`.
+        config: Fully populated :class:`SplitConfig`.  When ``config.images_only``
+            is ``True``, stages 4, 5, 7, and 12 are bypassed entirely so that
+            available RAM is reserved for image loading.
 
     Returns:
         ``(metrics, metadata_path)`` where ``metadata_path`` is the written
@@ -645,40 +652,50 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
     )
     if isinstance(fov_layout_summary, dict) and fov_layout_summary:
         metrics.extra["fov_layout_summary"] = fov_layout_summary
-    
-    # Pre-extract entity IDs from boundary files for each region
-    boundary_files = _time_stage("find_boundary_files", lambda: find_boundary_files(config.input_dir))
-    _log_boundary_files(boundary_files, config.input_dir)
 
-    original_totals = _time_stage(
-        "collect_original_entity_totals",
-        lambda: _collect_original_entity_totals(boundary_files),
-    )
-    if original_totals:
-        metrics.extra["entity_counts_original_totals"] = original_totals
-        metrics.extra["entity_counts_original_total_all"] = sum(original_totals.values())
-    
-    region_entity_ids = _time_stage(
-        "extract_region_entity_ids",
-        lambda: _extract_region_entity_ids(regions, boundary_files),
-    )
+    if config.images_only:
+        # Skip all data-processing stages so available RAM is reserved for images.
+        logger.info(
+            "images-only mode: skipping boundary extraction, entity IDs, CFM, "
+            "and tabular/zarr processing."
+        )
+        boundary_files: dict[str, Path] = {}
+        region_entity_ids: dict[str, dict[str, set[str]]] = {r.region_id: {} for r in regions}
+        cfm_processed_files: list[Path] = []
+    else:
+        # Pre-extract entity IDs from boundary files for each region
+        boundary_files = _time_stage("find_boundary_files", lambda: find_boundary_files(config.input_dir))
+        _log_boundary_files(boundary_files, config.input_dir)
 
-    _time_stage(
-        "write_region_entity_ids",
-        lambda: _write_region_entity_ids_and_counts(config, metrics, region_entity_ids),
-    )
+        original_totals = _time_stage(
+            "collect_original_entity_totals",
+            lambda: _collect_original_entity_totals(boundary_files),
+        )
+        if original_totals:
+            metrics.extra["entity_counts_original_totals"] = original_totals
+            metrics.extra["entity_counts_original_total_all"] = sum(original_totals.values())
 
-    cfm_processed_files = _time_stage(
-        "process_cell_feature_matrix_groups",
-        lambda: _process_cell_feature_matrix_groups(
-            config.input_dir,
-            regions,
-            config,
-            metrics,
-            region_entity_ids,
-            script_started_perf,
-        ),
-    )
+        region_entity_ids = _time_stage(
+            "extract_region_entity_ids",
+            lambda: _extract_region_entity_ids(regions, boundary_files),
+        )
+
+        _time_stage(
+            "write_region_entity_ids",
+            lambda: _write_region_entity_ids_and_counts(config, metrics, region_entity_ids),
+        )
+
+        cfm_processed_files = _time_stage(
+            "process_cell_feature_matrix_groups",
+            lambda: _process_cell_feature_matrix_groups(
+                config.input_dir,
+                regions,
+                config,
+                metrics,
+                region_entity_ids,
+                script_started_perf,
+            ),
+        )
 
     input_files = _time_stage("select_input_files", lambda: _select_input_files(config))
     
@@ -704,18 +721,33 @@ def run_split(config: SplitConfig) -> tuple[RunMetrics, Path]:
 
     main_loop_start = time.perf_counter()
 
-    for stem, fps in sorted(multi_format_groups.items()):
-        _run_logged_task(
-            f"process grouped {stem} files",
-            script_started_perf,
-            lambda fps=fps: _split_file_group(fps, regions, config, metrics, region_entity_ids),
-        )
+    if config.images_only:
+        # Record every grouped tabular file as skipped without reading it.
+        for stem, fps in sorted(multi_format_groups.items()):
+            for fp in fps:
+                rel = fp.relative_to(config.input_dir)
+                metrics.files_skipped += 1
+                metrics.file_metrics.append(
+                    FileMetric(
+                        source_path=str(rel),
+                        file_type="tabular",
+                        status="skipped",
+                        detail="images-only mode",
+                    )
+                )
+    else:
+        for stem, fps in sorted(multi_format_groups.items()):
+            _run_logged_task(
+                f"process grouped {stem} files",
+                script_started_perf,
+                lambda fps=fps: _split_file_group(fps, regions, config, metrics, region_entity_ids),
+            )
 
-        logger.info(
-            "File group %s finished in %.2fs",
-            stem,
-            time.perf_counter() - main_loop_start,
-        )
+            logger.info(
+                "File group %s finished in %.2fs",
+                stem,
+                time.perf_counter() - main_loop_start,
+            )
 
     for file_path in remainder_files:
         relative_path = file_path.relative_to(config.input_dir)
@@ -1199,8 +1231,25 @@ def _process_file(
     metrics: RunMetrics,
     region_entity_ids: dict[str, dict[str, set[str]]] | None = None,
 ) -> None:
-    """Route file to appropriate handler based on type."""
+    """Route file to appropriate handler based on type.
+
+    When ``config.images_only`` is ``True``, non-image files are recorded as
+    skipped without being read, so that RAM is reserved entirely for image
+    processing.
+    """
     file_type = classify_file(file_path)
+
+    if config.images_only and file_type != "image":
+        metrics.files_skipped += 1
+        metrics.file_metrics.append(
+            FileMetric(
+                source_path=str(relative_path),
+                file_type=file_type,
+                status="skipped",
+                detail="images-only mode",
+            )
+        )
+        return
     started = time.perf_counter()
     before_metrics = len(metrics.file_metrics)
     try:

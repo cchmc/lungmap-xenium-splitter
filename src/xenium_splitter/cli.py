@@ -86,6 +86,15 @@ def split_command(
         "--copy-transcripts",
         help="Copy transcript files verbatim to each region output with no filtering or rebasing.",
     ),
+    images_only: bool = typer.Option(
+        False,
+        "--images-only",
+        help=(
+            "Process only image files (morphology, H&E); skip all tabular data, zarr, CFM, and "
+            "diffexp stages. Useful for image-only re-runs after a data-only pass, or when RAM "
+            "must be reserved entirely for image processing. Mutually exclusive with --skip-images."
+        ),
+    ),
     verbose: bool = typer.Option(
         False,
         "-v",
@@ -95,6 +104,11 @@ def split_command(
 ) -> None:
     """Split Xenium files and optional H&E image into per-region outputs."""
     _configure_app_logging(verbose)
+    if images_only and skip_images:
+        raise typer.BadParameter(
+            "--images-only and --skip-images are mutually exclusive: "
+            "--images-only processes only images while --skip-images skips all images."
+        )
     config = SplitConfig(
         input_dir=input_dir,
         lasso_file=lasso_file,
@@ -108,6 +122,7 @@ def split_command(
         recalculate_diffexp=recalculate_diffexp,
         write_cell_feature_matrix_zarr=write_cell_feature_matrix_zarr,
         copy_transcripts=copy_transcripts,
+        images_only=images_only,
     )
     metrics, metadata_path = run_split(config)
     typer.echo("Split complete.")

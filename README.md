@@ -45,15 +45,16 @@ pip install -e ".[parquet,svs,hdf5,zarr,dev]"
 | `--he-image`           | None    | External H&E image to split alongside Xenium outputs (TIFF, OME-TIFF, SVS, PNG, JPEG). |
 | `--convert-svs-to-ome` | off     | When `--he-image` is an SVS file, also write a full-slide OME-TIFF per region.         |
 
-> **Note:** xenium-splitter does **not** perform H&E registration. The H&E image is assumed to already be spatially aligned with the Xenium coordinate space. No registration file, affine transform, or warping is applied. If your H&E requires registration to the morphology image, that step must be completed before running this tool. The H&E and morphology image can be different pixels sizes though, as the sizes are read and the H&E image scaled to the morphology dimensions and pixel size.
+> **Note:** xenium-splitter does **not** perform H&E registration. The H&E image is assumed to already be spatially aligned with the Xenium coordinate space. No registration file, affine transform, or warping is applied. If your H&E requires registration to the morphology image, that step must be completed before running this tool. The tool also assumes the H&E image uses the **same pixel size** as the Xenium morphology data — it reads `pixel_size_um` from `experiment.xenium` and uses that value to convert polygon coordinates to pixel coordinates for both. If your H&E has a different pixel resolution, the crop will be incorrectly positioned.
 
 **Optional — image processing:**
 
-| Option                                   | Default            | Description                                                                             |
-| ---------------------------------------- | ------------------ | --------------------------------------------------------------------------------------- |
-| `--squash-layers` / `--no-squash-layers` | `--squash-layers`  | Flatten multi-layer TIFF stacks to 2D/RGB before cropping.                              |
-| `--skip-images` / `--process-images`     | `--process-images` | Skip all image cropping and masking (useful for fast data-only runs).                   |
-| `--overlays` / `--no-overlays`           | `--no-overlays`    | Write annotated FOV grid overlay images alongside each region `morphology_mip.ome.tif`. |
+| Option                                   | Default            | Description                                                                                                                                                                                                                             |
+| ---------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--squash-layers` / `--no-squash-layers` | `--squash-layers`  | Flatten multi-layer TIFF stacks to 2D/RGB before cropping.                                                                                                                                                                              |
+| `--skip-images` / `--process-images`     | `--process-images` | Skip all image cropping and masking (useful for fast data-only runs).                                                                                                                                                                   |
+| `--images-only`                          | off                | Process **only** image files; skip all tabular data, zarr, CFM, and diffexp stages. Useful when running images separately to keep RAM available, or for a re-run after a prior data-only pass. Mutually exclusive with `--skip-images`. |
+| `--overlays` / `--no-overlays`           | `--no-overlays`    | Write annotated FOV grid overlay images alongside each region `morphology_mip.ome.tif`.                                                                                                                                                 |
 
 **Optional — data filtering:**
 
@@ -149,6 +150,35 @@ xenium-splitter split \
   --copy-transcripts
 ```
 
+**Images-only re-run after a prior data-only pass (minimise peak RAM):**
+
+```bash
+# Step 1 — data only (low RAM):
+xenium-splitter split \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.geojson \
+  --output-dir /path/to/output \
+  --skip-images
+
+# Step 2 — images only (reserves all RAM for image loading):
+xenium-splitter split \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.geojson \
+  --output-dir /path/to/output \
+  --images-only
+```
+
+**Images-only with a large SVS H&E:**
+
+```bash
+xenium-splitter split \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.geojson \
+  --output-dir /path/to/output \
+  --images-only \
+  --he-image /path/to/he.svs
+```
+
 ### Temp Cleanup
 
 Remove temporary working directories created under the OS temp folder
@@ -182,6 +212,61 @@ output/
     ...split files mirroring input names...
   run_metadata_README.md
 ```
+
+## RAM Requirements
+
+Memory usage is driven by three independent factors: transcript table size, image size, and zarr processing. They do not all peak simultaneously, but on large datasets they can overlap significantly. Note, official benchmarking has not been done on this yet. Once benchmarks are available, they will be added to this section.
+
+### Without image processing (`--skip-images`)
+
+The dominant cost is the full transcript table, which is loaded entirely into RAM as a pandas DataFrame before being filtered per region.
+
+| Dataset scale    | Approx. transcripts | Recommended RAM |
+| ---------------- | ------------------- | --------------- |
+| Small (< 1 mm²)  | ~500 K              | 4 GB            |
+| Medium (~10 mm²) | ~5 M                | 8 GB            |
+| Large (~50 mm²)  | ~50 M               | 16–32 GB        |
+
+The cell/barcode tables and CFM zarr add a modest additional cost (typically < 1 GB).
+
+### With image processing (default)
+
+Image memory cost depends on format and adds on top of the transcript cost above.
+
+**Morphology TIFF / OME-TIFF — always full-image load:**
+The entire morphology image is read into RAM before cropping; windowed reads are not used for TIFF. A temporary copy is created during Z-stack squashing (max-projection), so peak is approximately 2× the raw array size.
+
+| Image dimensions | Channels / planes  | RAM (peak ~2×) |
+| ---------------- | ------------------ | -------------- |
+| 5 K × 5 K        | 1 plane, uint16    | ~100 MB        |
+| 10 K × 10 K      | 1 plane, uint16    | ~400 MB        |
+| 20 K × 20 K      | 7 Z-planes, uint16 | ~11 GB         |
+| 30 K × 30 K      | 7 Z-planes, uint16 | ~25 GB         |
+
+**H&E as TIFF / OME-TIFF — full-image load:**
+Same behaviour as morphology: the complete image is loaded before any cropping.
+
+| Image dimensions | Channels  | RAM (peak ~2×) |
+| ---------------- | --------- | -------------- |
+| 10 K × 20 K      | RGB uint8 | ~1.2 GB        |
+| 25 K × 45 K      | RGB uint8 | ~6.8 GB        |
+
+**H&E as SVS — windowed, memory-efficient:**
+OpenSlide reads only the polygon bounding box per region; the full slide is never loaded. A typical crop (5 K × 5 K px) uses ~100 MB regardless of source file size. **SVS is the recommended format for large H&E images.**
+
+### Practical guidance
+
+| Scenario                                      | Recommended minimum RAM |
+| --------------------------------------------- | ----------------------- |
+| Data only, small dataset                      | 8 GB                    |
+| Data only, large dataset (≥ 50 M transcripts) | 32–64 GB                |
+| Data + morphology TIFF, medium dataset        | 16 GB                   |
+| Data + H&E TIFF (25 K × 45 K), medium dataset | 32 GB                   |
+| Data + H&E TIFF (25 K × 45 K), large dataset  | 64 GB                   |
+| Data + H&E SVS (any size), medium dataset     | 16 GB                   |
+| Data + H&E SVS (any size), large dataset      | 32–48 GB                |
+
+> **Tip:** Run `--skip-images` first for a fast data-only pass. Re-run with images only if needed. For large H&E files, convert to SVS or use a tiled OME-TIFF with a viewer that supports windowed reads before passing to this tool.
 
 ## Current Scope and Notes
 
