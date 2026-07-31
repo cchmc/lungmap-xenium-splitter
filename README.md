@@ -45,25 +45,22 @@ xenium-splitter split \
 - `--he-image`: Optional external H&E image path.
 - `--convert-svs-to-ome`: If H&E is SVS, also emit an OME-TIFF per region.
 - `--squash-layers/--no-squash-layers`: Flatten multi-layer images when needed.
+- `--include-glob`: Glob pattern(s) to limit which files are processed from the input directory (repeatable).
+- `--skip-images/--process-images`: Skip image extraction to reduce memory usage.
+- `--overlays/--no-overlays`: Write region grid overlay images when a `morphology_mip.ome.tif` output is available.
+- `--recalculate-diffexp/--skip-diffexp-recalc`: Recompute `analysis/diffexp` files from the region-filtered matrix and clustering outputs (default: on).
+- `--write-cell-feature-matrix-zarr/--skip-cell-feature-matrix-zarr`: Write `cell_feature_matrix.zarr.zip` outputs (default: on).
+- `--copy-transcripts`: Copy transcript files verbatim to each region output without filtering or rebasing.
+- `-v/--verbose`: Enable debug logging.
 
-xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images
-
-### Transcript Zarr Performance Options
-
-- `--rebuild-transcript-grids/--skip-transcript-grid-rebuild`: control whether `transcripts.zarr.zip` grids are rebuilt after filtering/rebasing.
-- `--rebuild-transcript-density/--skip-transcript-density-rebuild`: control density/gene CSR recomputation.
-- `--transcript-grid-max-levels N`: limit rebuilt grid pyramid depth (for example, `1` keeps only level 0).
-
-Fastest runtime mode (largest compatibility trade-off):
-
-```bash
-xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images --skip-transcript-grid-rebuild --skip-transcript-density-rebuild
-```
-
-Balanced mode (keep level 0 rebuild only):
+Example — skip images for a quick run:
 
 ```bash
-xenium-splitter split --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs --output-dir data_out/GSM7990532_slim --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv -v --skip-images --transcript-grid-max-levels 1 --skip-transcript-density-rebuild
+xenium-splitter split \
+  --input-dir data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs \
+  --output-dir data_out/GSM7990532_slim \
+  --lasso-file data/GSM7990532/GSM7990532_lasso_slim.csv \
+  --skip-images -v
 ```
 
 ### Temp Cleanup
