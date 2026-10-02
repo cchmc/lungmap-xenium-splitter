@@ -12,7 +12,7 @@ across different datasets, data sizes, and processing modes on an LSF-based HPC 
 | `benchmark_submit.py`          | Build and submit LSF jobs; write manifest and rendered job scripts |
 | `benchmark_report.py`          | Parse logs after jobs finish and print a formatted metrics report  |
 | `benchmark_config_example.csv` | Example benchmark configuration showing required columns           |
-| `benchmark_example_output.txt` | Example of the complete report output for reference                |
+| `benchmark_example_output.txt` | Historical sample report; current fields may differ                |
 
 ---
 
@@ -23,7 +23,9 @@ across different datasets, data sizes, and processing modes on an LSF-based HPC 
   (conda environment, virtualenv, or system install).
 - **`/usr/bin/time`** — used inside each job to capture precise peak RSS and wall time.
   Present on Linux; may require `time` package on some minimal images.
-- Python ≥ 3.10 on the submit host (for the scripts themselves; no third-party dependencies).
+- Python ≥ 3.10 on the submit host. The report uses Pillow for common raster image
+  dimensions and tifffile for TIFF/OME-TIFF/SVS dimensions when those packages are
+  available; otherwise it still reports the H&E format inferred from the filename.
 
 ---
 
@@ -81,6 +83,11 @@ python benchmark_submit.py \
 
 This submits two LSF jobs per dataset row (one `data_only`, one `with_images`) and
 writes a `benchmark_manifest.csv` to the log directory.
+The log directory, output base, and per-run output directories are created if they
+do not already exist. `--dry-run` does not create directories or files.
+Before submitting jobs, prior `xsplit_*.out`, `xsplit_*.err`, `xsplit_*.job`, and
+`benchmark_manifest.csv` files in the log directory are removed. Other files, such
+as generated reports, are preserved.
 
 ### 4. Wait for jobs to finish
 
@@ -110,6 +117,8 @@ python benchmark_report.py \
     --log-dir /hpc/logs/xenium_benchmark \
     --csv /hpc/logs/xenium_benchmark/report.csv
 ```
+
+Parent directories for the CSV path are created automatically if needed.
 
 ---
 
@@ -196,6 +205,11 @@ The report assembles metrics from three sources in priority order:
 Additionally, at report time:
 
 - H&E image file size (GB) — measured from the path in the manifest
+- H&E format, width, height, and total pixel count — read from image headers without
+  decoding the image; SVS dimensions use OpenSlide when available and otherwise fall
+  back to tifffile
+- H&E compression codec and codecs for recognized images under `input_dir` — read
+  from TIFF page metadata or inferred from standard raster formats
 - Morphology image size (GB) — `morphology*.ome.tif` files in `input_dir`
 - xenium-splitter output directory size (GB) — recursive `du`
 
@@ -232,7 +246,10 @@ large_slide_A       with_images MEMLIMIT 1h23m20s -        118.4       -        
 
 - **`Slowest` file in per-run detail** identifies the pipeline bottleneck for each run.
   `transcripts.zarr.zip` dominating is expected for large datasets.
-  `morphology.ome.tif` dominating indicates large image loads — consider SVS format.
+  If `morphology.ome.tif` dominates, use `--verbose-splitter` and inspect its TIFF
+  read-path messages in the `.err` log. `tiled JPEG2000` means only intersecting
+  tiles are decoded; `full TIFF decode` means the image layout fell back to a full
+  read. Tile decoding can still be slow when regions cover many tiles.
 
 - **`TIMEOUT` with `wall_s` equal to the walltime limit** confirms the job hit the
   LSF wall limit cleanly. Increase `walltime_with_images` (e.g., double it) and
@@ -270,7 +287,9 @@ bsub < /hpc/logs/xenium_benchmark/xsplit_large_slide_A_with_images.job
 ```
 
 To resubmit with a timestamp to avoid overwriting prior output, add
-`--timestamp-outputs` when re-running `benchmark_submit.py`.
+`--timestamp-outputs` when re-running `benchmark_submit.py`. This preserves output
+directories only; each submission still clears prior `xsplit_*.out`, `.err`, `.job`,
+and `benchmark_manifest.csv` files from the selected log directory.
 
 ---
 

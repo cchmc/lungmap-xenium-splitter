@@ -231,10 +231,7 @@ mkdir -p '{output_dir}'
 # /usr/bin/time -v writes detailed resource usage (peak RSS, wall time, etc.)
 # to stderr at job completion, captured in the .err log file.
 /usr/bin/time -v {splitter_cmd} split \\
-  --input-dir '{input_dir}' \\
-  --lasso-file '{lasso_file}' \\
-  --output-dir '{output_dir}' \\
-{he_image_arg}  {mode_flags}{verbose_flag}{extra_args_block}
+    {splitter_args}
 
 SPLITTER_EXIT=$?
 
@@ -278,16 +275,20 @@ def _build_job_script(
         env_block = "# No --env-script provided; using inherited environment."
 
     he_image_display = he_image if he_image else "(none)"
-    he_image_arg = f"  --he-image '{he_image}' \\\n" if he_image else ""
-
-    verbose_flag = " \\\n  -v" if verbose_splitter else ""
-
+    splitter_args = [
+        f"--input-dir '{input_dir}'",
+        f"--lasso-file '{lasso_file}'",
+        f"--output-dir '{output_dir}'",
+    ]
+    if he_image:
+        splitter_args.append(f"--he-image '{he_image}'")
+    if mode_flags.strip():
+        splitter_args.append(mode_flags.strip())
+    if verbose_splitter:
+        splitter_args.append("-v")
     if extra_args.strip():
-        extra_args_block = f" \\\n  {extra_args.strip()}"
-    else:
-        extra_args_block = ""
-
-    mode_flags_str = f"  {mode_flags} \\" if mode_flags.strip() else "\\"
+        splitter_args.append(extra_args.strip())
+    splitter_args_block = " \\\n  ".join(splitter_args)
 
     return _JOB_TEMPLATE.format(
         job_name=job_name,
@@ -305,11 +306,8 @@ def _build_job_script(
         output_dir=output_dir,
         lasso_file=lasso_file,
         he_image_display=he_image_display,
-        he_image_arg=he_image_arg,
         splitter_cmd=splitter_cmd,
-        mode_flags=mode_flags_str,
-        verbose_flag=verbose_flag,
-        extra_args_block=extra_args_block,
+        splitter_args=splitter_args_block,
     )
 
 
@@ -346,6 +344,18 @@ def _submit_job(script: str, dry_run: bool) -> str | None:
     return match.group(1) if match else None
 
 
+def _clear_previous_benchmark_logs(log_dir: Path) -> list[Path]:
+    """Remove benchmark-owned logs, rendered job scripts, and the prior manifest."""
+    patterns = ("xsplit_*.out", "xsplit_*.err", "xsplit_*.job", "benchmark_manifest.csv")
+    removed: list[Path] = []
+    for pattern in patterns:
+        for path in log_dir.glob(pattern):
+            if path.is_file() or path.is_symlink():
+                path.unlink()
+                removed.append(path)
+    return removed
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -362,6 +372,10 @@ def main() -> None:
 
     datasets = _read_config(args.config)
     print(f"Loaded {len(datasets)} dataset(s) from {args.config}")
+
+    if not args.dry_run:
+        removed_logs = _clear_previous_benchmark_logs(log_dir)
+        print(f"Removed {len(removed_logs)} previous benchmark log/artifact file(s) from {log_dir}")
 
     # Determine timestamp suffix if requested
     from datetime import datetime, timezone
@@ -407,6 +421,9 @@ def main() -> None:
             job_file = str(log_dir / f"{job_name}.job")
             ram_gb = row[spec["ram_key"]]
             walltime = row[spec["walltime_key"]]
+
+            if not args.dry_run:
+                Path(output_dir).mkdir(parents=True, exist_ok=True)
 
             script = _build_job_script(
                 job_name=job_name,

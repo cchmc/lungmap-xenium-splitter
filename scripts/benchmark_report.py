@@ -18,6 +18,8 @@ Reported metrics
   Duration (s)   - Wall time reported by xenium-splitter itself
   Input data GB  - Size of key input files (input_dir recursively)
   H&E size GB    - Size of the H&E image file if provided
+    H&E dimensions - Format, width, height, and total pixels from image metadata
+    Image compression - TIFF codecs from page metadata; standard raster codecs by format
   Output GB      - Total size of the xenium-splitter output directory
   Slowest file   - Slowest individual file processed and its time
 
@@ -375,6 +377,123 @@ def _file_size_gb(path: str | None) -> float | None:
     return round(p.stat().st_size / (1024 ** 3), 2)
 
 
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".svs"}
+
+
+def _image_compression(path: Path) -> str | None:
+    """Read image compression metadata without decoding pixel data."""
+    if not path.is_file():
+        return None
+
+    if path.suffix.lower() in {".tif", ".tiff", ".svs"}:
+        try:
+            import tifffile
+
+            with tifffile.TiffFile(path) as image_file:
+                codecs = list(dict.fromkeys(page.compression.name for page in image_file.pages))
+            return ", ".join(codecs) if codecs else None
+        except Exception:
+            return None
+
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            image_format = (image.format or "").upper()
+            if image_format == "PNG":
+                return "DEFLATE"
+            if image_format in {"JPEG", "WEBP"}:
+                return image_format
+            if image_format == "BMP":
+                return "UNCOMPRESSED"
+            compression = image.info.get("compression")
+            return str(compression) if compression is not None else None
+    except Exception:
+        return None
+
+
+def _input_image_compressions(input_dir: str, he_image: str | None) -> list[str]:
+    """Return compression descriptions for recognized images under input_dir."""
+    root = Path(input_dir)
+    if not root.is_dir():
+        return []
+
+    he_path = Path(he_image).resolve() if he_image else None
+    details = []
+    for image_path in sorted(path for path in root.rglob("*") if path.is_file()):
+        if image_path.suffix.lower() not in _IMAGE_SUFFIXES:
+            continue
+        if he_path is not None and image_path.resolve() == he_path:
+            continue
+        codec = _image_compression(image_path) or "unknown"
+        details.append(f"{image_path.relative_to(root)}={codec}")
+    return details
+
+
+def _he_image_metadata(path: str | None) -> dict[str, str | int | None]:
+    """Read H&E format and base image dimensions without decoding pixel data."""
+    metadata: dict[str, str | int | None] = {
+        "he_format": None,
+        "he_width_px": None,
+        "he_height_px": None,
+        "he_pixel_count": None,
+        "he_compression": None,
+    }
+    if not path:
+        return metadata
+
+    image_path = Path(path)
+    lower_name = image_path.name.lower()
+    if lower_name.endswith(".svs"):
+        metadata["he_format"] = "SVS"
+    elif lower_name.endswith((".ome.tif", ".ome.tiff")):
+        metadata["he_format"] = "OME-TIFF"
+    elif image_path.suffix.lower() in (".tif", ".tiff"):
+        metadata["he_format"] = "TIFF"
+    elif image_path.suffix:
+        metadata["he_format"] = image_path.suffix[1:].upper()
+
+    if not image_path.is_file():
+        return metadata
+
+    metadata["he_compression"] = _image_compression(image_path)
+    try:
+        if lower_name.endswith(".svs"):
+            try:
+                import openslide
+
+                with openslide.OpenSlide(str(image_path)) as slide:
+                    width, height = slide.dimensions
+            except Exception:
+                import tifffile
+
+                with tifffile.TiffFile(image_path) as image_file:
+                    page = image_file.pages[0]
+                    width, height = int(page.imagewidth), int(page.imagelength)
+        elif lower_name.endswith((".tif", ".tiff")):
+            import tifffile
+
+            with tifffile.TiffFile(image_path) as image_file:
+                page = image_file.pages[0]
+                width, height = int(page.imagewidth), int(page.imagelength)
+                if image_file.ome_metadata:
+                    metadata["he_format"] = "OME-TIFF"
+        else:
+            from PIL import Image
+
+            with Image.open(image_path) as image:
+                width, height = image.size
+                if image.format:
+                    metadata["he_format"] = image.format.upper()
+    except Exception:
+        return metadata
+
+    metadata["he_width_px"] = width
+    metadata["he_height_px"] = height
+    metadata["he_pixel_count"] = width * height
+    return metadata
+
+
 # ---------------------------------------------------------------------------
 # Time formatting
 # ---------------------------------------------------------------------------
@@ -499,7 +618,9 @@ def _assemble_run(row: dict) -> dict:
 
     # File sizes
     he_size_gb = _file_size_gb(row.get("he_image") or None)
+    he_metadata = _he_image_metadata(row.get("he_image") or None)
     input_dir = row.get("input_dir") or ""
+    input_image_compressions = _input_image_compressions(input_dir, row.get("he_image") or None)
     output_size_gb = _dir_size_gb(output_dir) if output_dir else None
 
     # Input image sizes (morphology files in input_dir)
@@ -548,6 +669,9 @@ def _assemble_run(row: dict) -> dict:
         "slowest_file_s": meta.get("meta_slowest_file_s"),
         # File sizes
         "he_size_gb": he_size_gb,
+        **he_metadata,
+        "input_image_compressions": input_image_compressions,
+        "input_image_compression": "; ".join(input_image_compressions),
         "morphology_size_gb": morphology_size_gb,
         "output_size_gb": output_size_gb,
         # Paths
@@ -597,6 +721,9 @@ _TABLE_HEADERS = [
     ("Files ok",       9),
     ("Files fail",    10),
     ("H&E(GB)",        9),
+    ("H&E format",    12),
+    ("H&E WxH(px)",   16),
+    ("H&E pixels",    16),
     ("Output(GB)",    11),
 ]
 
@@ -636,6 +763,13 @@ def _print_summary_table(records: list[dict], sort_by: str) -> None:
             _fmt_int(r["files_processed"]),
             _fmt_int(r["files_failed"]),
             _fmt_gb(r["he_size_gb"]),
+            r["he_format"] or "-",
+            (
+                f"{r['he_width_px']}x{r['he_height_px']}"
+                if r["he_width_px"] is not None and r["he_height_px"] is not None
+                else "-"
+            ),
+            f"{r['he_pixel_count']:,}" if r["he_pixel_count"] is not None else "-",
             _fmt_gb(r["output_size_gb"]),
         ]
         print("".join(_col(v, w) for v, w in zip(row_vals, (w for _, w in _TABLE_HEADERS))))
@@ -679,7 +813,21 @@ def _print_run_detail(r: dict) -> None:
 
     print(f"\n  File sizes")
     print(f"    H&E image  : {_fmt_gb(r['he_size_gb'])} GB")
+    print(f"    H&E format : {r['he_format'] or '-'}")
+    print(f"    H&E codec  : {r['he_compression'] or '-'}")
+    if r["he_width_px"] is not None and r["he_height_px"] is not None:
+        print(f"    H&E size   : {r['he_width_px']} x {r['he_height_px']} px")
+    else:
+        print("    H&E size   : -")
+    print(
+        "    H&E pixels : "
+        f"{r['he_pixel_count']:,}" if r["he_pixel_count"] is not None else "    H&E pixels : -"
+    )
     print(f"    Morphology : {_fmt_gb(r['morphology_size_gb'])} GB")
+    if r["input_image_compressions"]:
+        print("    Input image compression:")
+        for image_compression in r["input_image_compressions"]:
+            print(f"      {image_compression}")
     print(f"    Output dir : {_fmt_gb(r['output_size_gb'])} GB")
 
     print(f"\n  Logs")
@@ -697,17 +845,21 @@ _CSV_FIELDS = [
     "regions", "cells_total", "transcripts_total", "total_entities",
     "files_processed", "files_skipped", "files_failed", "files_discovered",
     "splitter_duration_s", "slowest_file", "slowest_file_s",
-    "he_size_gb", "morphology_size_gb", "output_size_gb",
+    "he_size_gb", "he_format", "he_width_px", "he_height_px", "he_pixel_count",
+    "he_compression", "input_image_compression",
+    "morphology_size_gb", "output_size_gb",
     "output_dir", "log_out", "log_err",
 ]
 
 
 def _write_csv(records: list[dict], path: str) -> None:
-    with open(path, "w", newline="") as fh:
+    csv_path = Path(path)
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(csv_path, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=_CSV_FIELDS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(records)
-    print(f"\nCSV written to: {path}")
+    print(f"\nCSV written to: {csv_path}")
 
 
 # ---------------------------------------------------------------------------
