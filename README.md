@@ -12,6 +12,7 @@ cropping to each region.
 - Coordinate re-basing in each region output (region origin becomes `(0, 0)`).
 - Image masking + cropping for raster images (`.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.ome.tif`, `.ome.tiff`).
 - Optional SVS handling for H&E: load, split, and optionally convert to OME-TIFF.
+- `show-regions` preview command: render labeled LASSO regions and dotted region bounding boxes on low-res H&E/morphology images.
 - Metadata README generation with run parameters and file-level metrics.
 
 ## Install
@@ -186,6 +187,48 @@ Remove temporary working directories created under the OS temp folder
 
 ```bash
 xenium-splitter clean-temp
+```
+
+### Region Preview (show-regions)
+
+Create a quick visual QC image (max `2000 x 2000`) that overlays LASSO regions and
+region bounding boxes on a source tissue image.
+
+Behavior:
+
+- Source image preference: H&E first, morphology fallback.
+- Region outline color: purple.
+- Dotted region bounding box color:
+  - H&E source: black.
+  - Morphology source: green.
+- Region labels: each `region_id` label is drawn once per bounding box in the top-inside corner with a small margin.
+- Label font size scales with generated image size for readability.
+
+CLI options:
+
+| Option               | Description                                                                    |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `--input-dir`        | Xenium input directory used to discover source images and `experiment.xenium`. |
+| `--lasso-file`       | LASSO region file (GeoJSON/JSON or CSV/TSV).                                   |
+| `--output-image`     | Output preview image path (for example `regions_preview.png`).                 |
+| `--he-image`         | Optional explicit H&E image path; when provided, this is used directly.        |
+| `--max-dimension-px` | Longest output edge in pixels (max allowed value is `2000`, default `2000`).   |
+
+Examples:
+
+```bash
+xenium-splitter show-regions \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.geojson \
+  --output-image /path/to/output/regions_preview.png
+```
+
+```bash
+xenium-splitter show-regions \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.csv \
+  --he-image /path/to/aligned_he.svs \
+  --output-image /path/to/output/regions_preview.png
 ```
 
 ## LASSO Input Expectations

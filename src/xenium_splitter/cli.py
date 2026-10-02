@@ -8,6 +8,7 @@ import tempfile
 import typer
 
 from xenium_splitter.models import SplitConfig
+from xenium_splitter.show_regions import create_regions_preview
 from xenium_splitter.splitter import run_split
 
 app = typer.Typer(help="Split Xenium outputs by LASSO regions.")
@@ -40,6 +41,45 @@ def clean_temp_command() -> None:
 
     shutil.rmtree(temp_root)
     typer.echo(f"Deleted temp directory: {temp_root}")
+
+
+@app.command("show-regions")
+def show_regions_command(
+    input_dir: Path = typer.Option(..., exists=True, file_okay=False, dir_okay=True),
+    lasso_file: Path = typer.Option(..., exists=True, file_okay=True, dir_okay=False),
+    output_image: Path = typer.Option(..., file_okay=True, dir_okay=False),
+    he_image: Path | None = typer.Option(None, exists=True, file_okay=True, dir_okay=False),
+    max_dimension_px: int = typer.Option(
+        2000,
+        min=1,
+        max=2000,
+        help="Maximum width or height of the generated preview image.",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "-v",
+        "--verbose",
+        help="Enable debug logging to see detailed processing info.",
+    ),
+) -> None:
+    """Create a low-resolution preview of LASSO regions over H&E or morphology.
+
+    H&E is preferred; morphology is used as a fallback when no H&E-like image
+    can be found in the input directory.
+    """
+    _configure_app_logging(verbose)
+    result = create_regions_preview(
+        input_dir=input_dir,
+        lasso_file=lasso_file,
+        output_image=output_image,
+        he_image=he_image,
+        max_dimension_px=max_dimension_px,
+    )
+    typer.echo("show_regions complete.")
+    typer.echo(f"Source image type: {result['source_kind']}")
+    typer.echo(f"Source image: {result['source_path']}")
+    typer.echo(f"Regions drawn: {result['region_count']}")
+    typer.echo(f"Output image: {result['output_path']}")
 
 
 @app.command("split")

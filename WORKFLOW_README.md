@@ -30,6 +30,22 @@ CLI split command
 	-> done
 ```
 
+## show-regions Preview Flow
+
+```text
+CLI show-regions command
+	-> load LASSO regions
+	-> load pixel size from experiment.xenium (if available)
+	-> discover source image (H&E preferred, morphology fallback)
+	-> read source image and downscale to max 2000x2000
+	-> draw each region outline (purple)
+	-> draw each region bounding box as dotted lines
+		 -> H&E source: black dotted bbox
+		 -> morphology source: green dotted bbox
+	-> label each region with region_id
+	-> write preview image to --output-image
+```
+
 Decision summary:
 
 - Preferred filtering path: boundary-ID intersection.
