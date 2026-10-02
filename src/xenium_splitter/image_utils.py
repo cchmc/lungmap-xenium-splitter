@@ -172,35 +172,71 @@ def _read_masked_cropped_tiff_region(
     if min_x_i >= max_x_i or min_y_i >= max_y_i:
         return np.empty((0, 0), dtype=np.uint8)
 
-    # Read full image with squashing, then crop to region bbox.
-    # This is simpler and more reliable than trying to do windowed zarr reads.
-    try:
-        full = read_image(path, squash_layers=squash_layers)
-    except Exception as e:
-        logger.error(f"Failed to read TIFF {path.name}: {e}")
-        raise
-
-    spatial_axes = _spatial_axes_for_array(full, path=path)
-    y_axis, x_axis = spatial_axes
-    h = int(full.shape[y_axis])
-    w = int(full.shape[x_axis])
-    min_x_i_safe = max(min_x_i, 0)
-    min_y_i_safe = max(min_y_i, 0)
-    max_x_i_safe = min(max_x_i, w)
-    max_y_i_safe = min(max_y_i, h)
-    
-    if min_x_i_safe >= max_x_i_safe or min_y_i_safe >= max_y_i_safe:
-        logger.warning(
-            f"Crop bounds out of image range for {path.name}: "
-            f"requested ({min_x_i}, {min_y_i}, {max_x_i}, {max_y_i}), "
-            f"image shape ({h}, {w})"
+    tiled_result = (
+        _read_tiled_jpeg2000_crop(path, min_x_i, min_y_i, max_x_i, max_y_i)
+        if squash_layers
+        else None
+    )
+    if tiled_result is not None:
+        cropped, min_x_i_safe, min_y_i_safe, max_x_i_safe, max_y_i_safe = tiled_result
+        spatial_axes = (0, 1)
+        logger.debug(
+            "Read %s crop via tiled JPEG2000: source_bbox=(%d,%d)-(%d,%d), crop_shape=%s",
+            path.name,
+            min_x_i_safe,
+            min_y_i_safe,
+            max_x_i_safe,
+            max_y_i_safe,
+            cropped.shape,
         )
-        return np.empty((0, 0), dtype=full.dtype)
-    
-    crop_slices = [slice(None)] * full.ndim
-    crop_slices[y_axis] = slice(min_y_i_safe, max_y_i_safe)
-    crop_slices[x_axis] = slice(min_x_i_safe, max_x_i_safe)
-    cropped = full[tuple(crop_slices)]
+    else:
+        memory_mapped = False
+        try:
+            try:
+                full = tifffile.memmap(path, mode="r")
+                memory_mapped = True
+            except ValueError:
+                full = read_image(path, squash_layers=False)
+        except Exception as e:
+            logger.error(f"Failed to read TIFF {path.name}: {e}")
+            raise
+
+        spatial_axes = _spatial_axes_for_array(full, path=path)
+        y_axis, x_axis = spatial_axes
+        h = int(full.shape[y_axis])
+        w = int(full.shape[x_axis])
+        min_x_i_safe = max(min_x_i, 0)
+        min_y_i_safe = max(min_y_i, 0)
+        max_x_i_safe = min(max_x_i, w)
+        max_y_i_safe = min(max_y_i, h)
+
+        if min_x_i_safe >= max_x_i_safe or min_y_i_safe >= max_y_i_safe:
+            logger.warning(
+                f"Crop bounds out of image range for {path.name}: "
+                f"requested ({min_x_i}, {min_y_i}, {max_x_i}, {max_y_i}), "
+                f"image shape ({h}, {w})"
+            )
+            return np.empty((0, 0), dtype=full.dtype)
+
+        logger.debug(
+            "Read %s crop via %s: source_shape=%s, source_bbox=(%d,%d)-(%d,%d)",
+            path.name,
+            "memory-mapped TIFF" if memory_mapped else "full TIFF decode",
+            full.shape,
+            min_x_i_safe,
+            min_y_i_safe,
+            max_x_i_safe,
+            max_y_i_safe,
+        )
+
+        crop_slices = [slice(None)] * full.ndim
+        crop_slices[y_axis] = slice(min_y_i_safe, max_y_i_safe)
+        crop_slices[x_axis] = slice(min_x_i_safe, max_x_i_safe)
+        cropped = full[tuple(crop_slices)]
+        if squash_layers:
+            cropped = _squash_if_needed(cropped, path=path, source_shape=full.shape)
+            spatial_axes = _spatial_axes_for_array(cropped, path=path)
+
     local_polygon = affinity.translate(polygon_px, xoff=-min_x_i_safe, yoff=-min_y_i_safe)
     masked = _apply_local_mask(cropped, local_polygon, spatial_axes=spatial_axes)
     
@@ -210,7 +246,126 @@ def _read_masked_cropped_tiff_region(
     return masked
 
 
-def _squash_if_needed(array: np.ndarray, path: Path | None = None) -> np.ndarray:
+def _read_tiled_jpeg2000_crop(
+    path: Path,
+    min_x: int,
+    min_y: int,
+    max_x: int,
+    max_y: int,
+) -> tuple[np.ndarray, int, int, int, int] | None:
+    """Decode intersecting tiles from grayscale JPEG2000 TIFF planes."""
+    try:
+        with tifffile.TiffFile(path) as image_file:
+            if len(image_file.series) != 1:
+                return None
+            series = image_file.series[0]
+            if len(series.shape) < 2 or not series.axes.endswith("YX"):
+                return None
+
+            pages = image_file.pages
+            plane_count = 1
+            for dimension in series.shape[:-2]:
+                plane_count *= int(dimension)
+            if len(pages) != plane_count:
+                return None
+
+            first_page = pages[0]
+            page_info = getattr(first_page, "keyframe", first_page)
+            if (
+                not page_info.is_tiled
+                or page_info.compression.name != "JPEG2000"
+                or page_info.axes != "YX"
+                or page_info.samplesperpixel != 1
+                or len(page_info.shape) != 2
+            ):
+                return None
+
+            image_height = int(page_info.imagelength)
+            image_width = int(page_info.imagewidth)
+            min_x_safe = max(min_x, 0)
+            min_y_safe = max(min_y, 0)
+            max_x_safe = min(max_x, image_width)
+            max_y_safe = min(max_y, image_height)
+            if min_x_safe >= max_x_safe or min_y_safe >= max_y_safe:
+                return (
+                    np.empty((0, 0), dtype=page.dtype),
+                    min_x_safe,
+                    min_y_safe,
+                    max_x_safe,
+                    max_y_safe,
+                )
+
+            tile_height = int(page_info.tilelength)
+            tile_width = int(page_info.tilewidth)
+            tiles_per_row = (image_width + tile_width - 1) // tile_width
+            tile_row_start = min_y_safe // tile_height
+            tile_row_end = (max_y_safe - 1) // tile_height
+            tile_col_start = min_x_safe // tile_width
+            tile_col_end = (max_x_safe - 1) // tile_width
+            cropped = np.empty(
+                (max_y_safe - min_y_safe, max_x_safe - min_x_safe),
+                dtype=page_info.dtype,
+            )
+
+            with path.open("rb") as image_stream:
+                first_plane = True
+                for page in pages:
+                    current_page_info = getattr(page, "keyframe", page)
+                    if (
+                        not current_page_info.is_tiled
+                        or current_page_info.compression.name != "JPEG2000"
+                        or current_page_info.axes != "YX"
+                        or current_page_info.samplesperpixel != 1
+                        or int(current_page_info.imagelength) != image_height
+                        or int(current_page_info.imagewidth) != image_width
+                        or int(current_page_info.tilelength) != tile_height
+                        or int(current_page_info.tilewidth) != tile_width
+                    ):
+                        return None
+
+                    decoder = getattr(page, "decode", current_page_info.decode)
+                    for tile_row in range(tile_row_start, tile_row_end + 1):
+                        for tile_col in range(tile_col_start, tile_col_end + 1):
+                            tile_index = tile_row * tiles_per_row + tile_col
+                            offset = int(page.dataoffsets[tile_index])
+                            byte_count = int(page.databytecounts[tile_index])
+                            image_stream.seek(offset)
+                            encoded_tile = image_stream.read(byte_count)
+                            decoded_tile, _, _ = decoder(encoded_tile, tile_index)
+                            tile = decoded_tile[0, :, :, 0]
+
+                            tile_min_x = tile_col * tile_width
+                            tile_min_y = tile_row * tile_height
+                            tile_max_x = min(tile_min_x + tile_width, image_width)
+                            tile_max_y = min(tile_min_y + tile_height, image_height)
+                            copy_min_x = max(min_x_safe, tile_min_x)
+                            copy_min_y = max(min_y_safe, tile_min_y)
+                            copy_max_x = min(max_x_safe, tile_max_x)
+                            copy_max_y = min(max_y_safe, tile_max_y)
+
+                            crop_y = slice(copy_min_y - min_y_safe, copy_max_y - min_y_safe)
+                            crop_x = slice(copy_min_x - min_x_safe, copy_max_x - min_x_safe)
+                            tile_y = slice(copy_min_y - tile_min_y, copy_max_y - tile_min_y)
+                            tile_x = slice(copy_min_x - tile_min_x, copy_max_x - tile_min_x)
+                            crop_view = cropped[crop_y, crop_x]
+                            tile_view = tile[tile_y, tile_x]
+                            if first_plane:
+                                crop_view[...] = tile_view
+                            else:
+                                np.maximum(crop_view, tile_view, out=crop_view)
+                    first_plane = False
+
+            return cropped, min_x_safe, min_y_safe, max_x_safe, max_y_safe
+    except Exception as exc:
+        logger.debug("Falling back to full TIFF read for %s: %s", path.name, exc)
+        return None
+
+
+def _squash_if_needed(
+    array: np.ndarray,
+    path: Path | None = None,
+    source_shape: tuple[int, ...] | None = None,
+) -> np.ndarray:
     """Flatten multi-page TIFF arrays intelligently.
     
     For OME-TIFF with axes metadata, flatten based on what each axis represents.
@@ -221,7 +376,8 @@ def _squash_if_needed(array: np.ndarray, path: Path | None = None) -> np.ndarray
 
     if arr.ndim == 2:
         return arr
-    if arr.ndim == 3 and arr.shape[-1] in (3, 4):
+    shape_for_rgb_check = source_shape or arr.shape
+    if arr.ndim == 3 and shape_for_rgb_check[-1] in (3, 4):
         return arr
 
     axes = _get_tiff_axes(path) if path else None
