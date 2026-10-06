@@ -223,6 +223,7 @@ echo "Input dir  : {input_dir}"
 echo "Output dir : {output_dir}"
 echo "Lasso file : {lasso_file}"
 echo "H&E image  : {he_image_display}"
+echo "Metrics    : {metrics_json}"
 echo ""
 
 # Create output directory explicitly so its mtime can be used as start time
@@ -230,10 +231,20 @@ mkdir -p '{output_dir}'
 
 # /usr/bin/time -v writes detailed resource usage (peak RSS, wall time, etc.)
 # to stderr at job completion, captured in the .err log file.
+set +e
 /usr/bin/time -v {splitter_cmd} split \\
     {splitter_args}
 
 SPLITTER_EXIT=$?
+set -e
+
+if command -v python >/dev/null 2>&1; then
+    BENCHMARK_PYTHON=python
+else
+    BENCHMARK_PYTHON=python3
+fi
+"$BENCHMARK_PYTHON" '{collector_script}' \\
+    {collector_args} || echo "WARNING: failed to capture benchmark metadata"
 
 echo ""
 echo "=== BENCHMARK JOB END ==="
@@ -257,6 +268,8 @@ def _build_job_script(
     log_out: str,
     log_err: str,
     env_script: str | None,
+    collector_script: str,
+    metrics_json: str,
     splitter_cmd: str,
     input_dir: str,
     lasso_file: str,
@@ -290,6 +303,20 @@ def _build_job_script(
         splitter_args.append(extra_args.strip())
     splitter_args_block = " \\\n  ".join(splitter_args)
 
+    collector_args = [
+        f"--job-name '{job_name}'",
+        f"--mode '{mode}'",
+        f"--input-dir '{input_dir}'",
+        f"--lasso-file '{lasso_file}'",
+        f"--output-dir '{output_dir}'",
+        f"--err-log '{log_err}'",
+        f"--output-json '{metrics_json}'",
+        '--exit-code "$SPLITTER_EXIT"',
+    ]
+    if he_image:
+        collector_args.insert(4, f"--he-image '{he_image}'")
+    collector_args_block = " \\\n  ".join(collector_args)
+
     return _JOB_TEMPLATE.format(
         job_name=job_name,
         dataset_name=dataset_name,
@@ -302,12 +329,15 @@ def _build_job_script(
         log_err=log_err,
         project_line=project_line,
         env_block=env_block,
+        metrics_json=metrics_json,
+        collector_script=collector_script,
         input_dir=input_dir,
         output_dir=output_dir,
         lasso_file=lasso_file,
         he_image_display=he_image_display,
         splitter_cmd=splitter_cmd,
         splitter_args=splitter_args_block,
+        collector_args=collector_args_block,
     )
 
 
@@ -346,7 +376,13 @@ def _submit_job(script: str, dry_run: bool) -> str | None:
 
 def _clear_previous_benchmark_logs(log_dir: Path) -> list[Path]:
     """Remove benchmark-owned logs, rendered job scripts, and the prior manifest."""
-    patterns = ("xsplit_*.out", "xsplit_*.err", "xsplit_*.job", "benchmark_manifest.csv")
+    patterns = (
+        "xsplit_*.out",
+        "xsplit_*.err",
+        "xsplit_*.job",
+        "xsplit_*.metrics.json",
+        "benchmark_manifest.csv",
+    )
     removed: list[Path] = []
     for pattern in patterns:
         for path in log_dir.glob(pattern):
@@ -419,6 +455,7 @@ def main() -> None:
             log_out = str(log_dir / f"{job_name}.out")
             log_err = str(log_dir / f"{job_name}.err")
             job_file = str(log_dir / f"{job_name}.job")
+            metrics_json = str(log_dir / f"{job_name}.metrics.json")
             ram_gb = row[spec["ram_key"]]
             walltime = row[spec["walltime_key"]]
 
@@ -437,6 +474,8 @@ def main() -> None:
                 log_out=log_out,
                 log_err=log_err,
                 env_script=args.env_script,
+                collector_script=str(Path(__file__).with_name("benchmark_capture.py").resolve()),
+                metrics_json=metrics_json,
                 splitter_cmd=args.python,
                 input_dir=input_dir,
                 lasso_file=lasso_file,
@@ -472,6 +511,7 @@ def main() -> None:
                 "log_out": log_out,
                 "log_err": log_err,
                 "job_file": job_file,
+                "metrics_json": metrics_json,
             })
 
     # Write manifest
@@ -479,7 +519,7 @@ def main() -> None:
     manifest_fields = [
         "name", "mode", "job_name", "job_id",
         "input_dir", "he_image", "lasso_file", "output_dir",
-        "ram_gb", "walltime", "log_out", "log_err", "job_file",
+        "ram_gb", "walltime", "log_out", "log_err", "job_file", "metrics_json",
     ]
 
     if args.dry_run:

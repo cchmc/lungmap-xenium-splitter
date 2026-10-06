@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Process xenium-splitter benchmark log files and produce a summary report.
 
-Reads LSF output logs, /usr/bin/time -v stderr output, and xenium-splitter
-run_metadata_README.md files to assemble per-run metrics.
+Reads LSF output logs, /usr/bin/time -v stderr output, per-job metrics JSON
+sidecars, and xenium-splitter run_metadata_README.md files to assemble per-run
+metrics.
 
 Reported metrics
 ----------------
@@ -13,13 +14,15 @@ Reported metrics
   Avg RAM (GB)   - Average RSS (LSF resource summary)
   Regions        - Number of LASSO regions split
   Cells total    - Total cells across all regions (from entity counts)
-  Transcripts    - Estimated from per-region row counts in metadata
+    Transcripts    - Sum of completed region counts from sidecar/log metadata
   Files ok/skip/fail  - xenium-splitter file processing summary
   Duration (s)   - Wall time reported by xenium-splitter itself
-  Input data GB  - Size of key input files (input_dir recursively)
+    Input data GB  - Recursive input directory size captured on the compute node
   H&E size GB    - Size of the H&E image file if provided
     H&E dimensions - Format, width, height, and total pixels from image metadata
     Image compression - TIFF codecs from page metadata; standard raster codecs by format
+    Source paths   - Input, LASSO, H&E, and output paths from manifest/sidecar
+    File inventory - Source file paths and byte sizes from the compute-node sidecar
   Output GB      - Total size of the xenium-splitter output directory
   Slowest file   - Slowest individual file processed and its time
 
@@ -40,9 +43,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import re
 import sys
+from math import prod
 from pathlib import Path
 
 
@@ -76,6 +81,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--no-detail", action="store_true",
         help="Suppress the per-run detail sections; print only the summary table.",
+    )
+    p.add_argument(
+        "--metrics-only", action="store_true",
+        help="Hide the Status column from the summary table and CSV.",
     )
     p.add_argument(
         "--sort-by",
@@ -256,6 +265,9 @@ _RE_META_ENTITY_ROW = re.compile(
 _RE_META_ENTITY_HEADER = re.compile(r"^\|\s*Region\s*\|\s*(.*?)\s*\|.*?\|\s*Total\s*\|", re.MULTILINE)
 # Per-region row count
 _RE_META_ROWS_WRITTEN = re.compile(r"^- Total rows written:\s*(\d+)", re.MULTILINE)
+_RE_REGION_COUNTS = re.compile(
+    r"Updated metadata for region (.+?) \(cells=(\d+), transcripts=(\d+), area_um2="
+)
 
 # Slowest file: first data row from timing table
 _RE_META_SLOWEST = re.compile(
@@ -355,17 +367,58 @@ def _parse_run_metadata(path: str) -> dict:
     return result
 
 
+def _parse_region_counts_from_log(path: str) -> list[dict[str, int | str]]:
+    """Extract completed per-region cell and transcript counts from splitter logs."""
+    log_path = Path(path)
+    if not log_path.is_file():
+        return []
+
+    counts_by_region: dict[str, dict[str, int | str]] = {}
+    for match in _RE_REGION_COUNTS.finditer(log_path.read_text(errors="replace")):
+        region_id = match.group(1).strip()
+        counts_by_region[region_id] = {
+            "region_id": region_id,
+            "cells": int(match.group(2)),
+            "transcripts": int(match.group(3)),
+        }
+    return list(counts_by_region.values())
+
+
+def _load_metrics_sidecar(path: str | Path) -> dict:
+    """Load the optional per-job JSON metadata sidecar."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # File size helpers
 # ---------------------------------------------------------------------------
 
-def _dir_size_gb(path: str) -> float | None:
-    """Recursively sum file sizes in a directory and return GB, or None if missing."""
+def _directory_size_bytes(path: str | Path) -> int | None:
+    """Recursively sum file sizes in a directory, or return None if missing."""
     p = Path(path)
     if not p.is_dir():
         return None
-    total = sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
-    return round(total / (1024 ** 3), 2)
+    total = 0
+    for file_path in p.rglob("*"):
+        try:
+            if file_path.is_file():
+                total += file_path.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def _bytes_to_gb(size_bytes: int | None) -> float | None:
+    return round(size_bytes / (1024 ** 3), 2) if size_bytes is not None else None
+
+
+def _dir_size_gb(path: str) -> float | None:
+    """Recursively sum file sizes in a directory and return GB, or None if missing."""
+    return _bytes_to_gb(_directory_size_bytes(path))
 
 
 def _file_size_gb(path: str | None) -> float | None:
@@ -428,6 +481,37 @@ def _input_image_compressions(input_dir: str, he_image: str | None) -> list[str]
         codec = _image_compression(image_path) or "unknown"
         details.append(f"{image_path.relative_to(root)}={codec}")
     return details
+
+
+def _input_file_inventory(input_dir: str) -> list[dict]:
+    """Collect source paths and byte sizes, annotating recognized image files."""
+    root = Path(input_dir)
+    if not root.is_dir():
+        return []
+
+    inventory = []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        try:
+            size_bytes = path.stat().st_size
+        except OSError:
+            continue
+        item = {
+            "path": str(path),
+            "relative_path": str(path.relative_to(root)),
+            "size_bytes": size_bytes,
+        }
+        if path.suffix.lower() in _IMAGE_SUFFIXES:
+            image_metadata = _he_image_metadata(str(path))
+            item["image"] = {
+                "format": image_metadata["he_format"],
+                "width_px": image_metadata["he_width_px"],
+                "height_px": image_metadata["he_height_px"],
+                "pixel_count": image_metadata["he_pixel_count"],
+                "compression": image_metadata["he_compression"],
+            }
+            item["image"].update(_tiff_spatial_metadata(path))
+        inventory.append(item)
+    return inventory
 
 
 def _he_image_metadata(path: str | None) -> dict[str, str | int | None]:
@@ -494,6 +578,83 @@ def _he_image_metadata(path: str | None) -> dict[str, str | int | None]:
     return metadata
 
 
+def _tiff_spatial_metadata(path: Path) -> dict[str, object | None]:
+    """Read TIFF series shape and spatial/stack dimensions without decoding pixels."""
+    metadata: dict[str, object | None] = {
+        "axes": None,
+        "shape": None,
+        "plane_count": None,
+        "sample_count": None,
+    }
+    if path.suffix.lower() not in {".tif", ".tiff", ".svs"} or not path.is_file():
+        return metadata
+
+    try:
+        import tifffile
+
+        with tifffile.TiffFile(path) as image_file:
+            if not image_file.series:
+                return metadata
+            series = image_file.series[0]
+            axes = str(series.axes).upper()
+            shape = tuple(int(size) for size in series.shape)
+            if len(shape) != len(axes):
+                return metadata
+            if "X" not in axes or "Y" not in axes:
+                return metadata
+            width = shape[axes.index("X")]
+            height = shape[axes.index("Y")]
+            nonspatial_shape = [
+                size for axis, size in zip(axes, shape) if axis not in {"X", "Y", "C", "S"}
+            ]
+            metadata.update(
+                {
+                    "axes": axes,
+                    "shape": list(shape),
+                    "width_px": width,
+                    "height_px": height,
+                    "spatial_pixel_count": width * height,
+                    "plane_count": prod(nonspatial_shape) if nonspatial_shape else 1,
+                    "sample_count": prod(shape),
+                }
+            )
+    except Exception:
+        return metadata
+    return metadata
+
+
+def _he_dimensions_from_log(log_path: str, he_image: str) -> dict[str, int | None]:
+    """Recover H&E dimensions from the logged image array shape if the source is offline."""
+    dimensions: dict[str, int | None] = {
+        "he_width_px": None,
+        "he_height_px": None,
+        "he_pixel_count": None,
+    }
+    if not he_image or not Path(log_path).is_file():
+        return dimensions
+
+    image_name = Path(he_image).name
+    shape_pattern = re.compile(
+        rf"Read .*{re.escape(image_name)} crop via .*source_shape=\(([^)]*)\)"
+    )
+    for line in Path(log_path).read_text(errors="replace").splitlines():
+        match = shape_pattern.search(line)
+        if not match:
+            continue
+        shape = [int(value.strip()) for value in match.group(1).split(",") if value.strip()]
+        if len(shape) < 2:
+            continue
+        if len(shape) >= 3 and shape[-1] in (3, 4):
+            height, width = shape[-3], shape[-2]
+        else:
+            height, width = shape[-2], shape[-1]
+        dimensions["he_width_px"] = width
+        dimensions["he_height_px"] = height
+        dimensions["he_pixel_count"] = width * height
+        break
+    return dimensions
+
+
 # ---------------------------------------------------------------------------
 # Time formatting
 # ---------------------------------------------------------------------------
@@ -557,7 +718,20 @@ def _load_manifest(log_dir: str, manifest_path: str | None) -> list[dict] | None
     if not candidate.is_file():
         return None
     with open(candidate, newline="") as fh:
-        return list(csv.DictReader(fh))
+        rows = list(csv.DictReader(fh))
+
+    for row in rows:
+        for field in ("log_out", "log_err", "job_file", "metrics_json"):
+            value = row.get(field)
+            if not value:
+                continue
+            source_path = Path(value)
+            if source_path.is_file():
+                continue
+            bundled_path = candidate.parent / source_path.name
+            if bundled_path.is_file():
+                row[field] = str(bundled_path)
+    return rows
 
 
 def _discover_from_logs(log_dir: str) -> list[dict]:
@@ -590,6 +764,7 @@ def _discover_from_logs(log_dir: str) -> list[dict]:
             "log_out": str(out_file),
             "log_err": str(out_file.with_suffix(".err")),
             "job_file": str(out_file.with_suffix(".job")),
+            "metrics_json": str(out_file.with_suffix(".metrics.json")),
         })
     return rows
 
@@ -598,13 +773,43 @@ def _discover_from_logs(log_dir: str) -> list[dict]:
 # Assemble per-run record
 # ---------------------------------------------------------------------------
 
+def _archive_size_mb(input_dir: str, inventory: list[dict], archive_name: str) -> float | None:
+    """Read a root-level input archive's encoded size in decimal MB."""
+    for item in inventory:
+        if str(item.get("relative_path", "")).replace("\\", "/") == archive_name:
+            size_bytes = item.get("size_bytes")
+            if size_bytes is not None:
+                return int(size_bytes) / 1_000_000
+    if not input_dir:
+        return None
+    archive_path = Path(input_dir) / archive_name
+    try:
+        return archive_path.stat().st_size / 1_000_000 if archive_path.is_file() else None
+    except OSError:
+        return None
+
+
 def _assemble_run(row: dict) -> dict:
     """Parse all available log/metadata sources and return a flat metrics dict."""
     out = _parse_out_log(row["log_out"])
     err = _parse_err_log(row["log_err"])
+    metrics_json_path = row.get("metrics_json") or str(
+        Path(row["log_err"]).with_suffix(".metrics.json")
+    )
+    sidecar = _load_metrics_sidecar(metrics_json_path)
+    sidecar_paths = sidecar.get("source_paths", {})
+    sidecar_run_metrics = sidecar.get("run_metrics", {})
+    region_counts = sidecar.get("region_counts") or _parse_region_counts_from_log(
+        row["log_err"]
+    )
 
     # Output dir: manifest > log
-    output_dir = row.get("output_dir") or out.get("output_dir_from_log") or ""
+    output_dir = (
+        row.get("output_dir")
+        or sidecar_paths.get("output_dir")
+        or out.get("output_dir_from_log")
+        or ""
+    )
     metadata_path = str(Path(output_dir) / "run_metadata_README.md") if output_dir else ""
     meta = _parse_run_metadata(metadata_path)
 
@@ -616,24 +821,109 @@ def _assemble_run(row: dict) -> dict:
     wall_s = err.get("time_wall_s") or out.get("lsf_run_s") or meta.get("meta_duration_s")
     cpu_s = err.get("time_cpu_s") or out.get("lsf_cpu_s")
 
-    # File sizes
-    he_size_gb = _file_size_gb(row.get("he_image") or None)
-    he_metadata = _he_image_metadata(row.get("he_image") or None)
-    input_dir = row.get("input_dir") or ""
-    input_image_compressions = _input_image_compressions(input_dir, row.get("he_image") or None)
-    output_size_gb = _dir_size_gb(output_dir) if output_dir else None
+    input_dir = row.get("input_dir") or sidecar_paths.get("input_dir") or ""
+    lasso_file = row.get("lasso_file") or sidecar_paths.get("lasso_file") or ""
+    he_image = row.get("he_image") or sidecar_paths.get("he_image") or ""
+    file_sizes = sidecar.get("file_sizes_bytes", {})
+    file_inventory = sidecar.get("input_files")
+    if file_inventory is None:
+        file_inventory = _input_file_inventory(input_dir)
 
-    # Input image sizes (morphology files in input_dir)
-    morphology_size_gb: float | None = None
-    if input_dir and Path(input_dir).is_dir():
-        morph_files = (
-            list(Path(input_dir).rglob("morphology*.ome.tif"))
-            + list(Path(input_dir).rglob("morphology*.ome.tiff"))
+    sidecar_he_metadata = sidecar.get("he_image")
+    he_metadata = sidecar_he_metadata or _he_image_metadata(he_image or None)
+    if he_metadata.get("he_width_px") is None:
+        he_metadata.update(_he_dimensions_from_log(row["log_err"], he_image))
+    he_size_gb = (
+        _bytes_to_gb(file_sizes.get("he_image"))
+        if "he_image" in file_sizes
+        else _file_size_gb(he_image or None)
+    )
+    input_dir_size_gb = (
+        _bytes_to_gb(file_sizes.get("input_dir"))
+        if "input_dir" in file_sizes
+        else _dir_size_gb(input_dir) if input_dir else None
+    )
+    lasso_size_gb = (
+        _bytes_to_gb(file_sizes.get("lasso_file"))
+        if "lasso_file" in file_sizes
+        else _file_size_gb(lasso_file or None)
+    )
+    input_images = [item for item in file_inventory if isinstance(item.get("image"), dict)]
+    input_image_compressions = [
+        f"{item.get('relative_path', item.get('path', ''))}="
+        f"{item['image'].get('compression') or 'unknown'}"
+        for item in input_images
+    ]
+    if not file_inventory and input_dir:
+        input_image_compressions = _input_image_compressions(input_dir, he_image or None)
+
+    morphology_item = next(
+        (
+            item
+            for item in file_inventory
+            if Path(str(item.get("relative_path", item.get("path", "")))).name.lower()
+            in {"morphology.ome.tif", "morphology.ome.tiff"}
+        ),
+        None,
+    )
+    morphology_image = morphology_item.get("image", {}) if morphology_item else {}
+    if morphology_item and not morphology_image.get("spatial_pixel_count"):
+        morphology_image = {
+            **morphology_image,
+            **_tiff_spatial_metadata(Path(str(morphology_item.get("path", "")))),
+        }
+    morphology_file_size_gb = (
+        _bytes_to_gb(int(morphology_item.get("size_bytes", 0)))
+        if morphology_item and morphology_item.get("size_bytes") is not None
+        else None
+    )
+
+    # Combined size of the morphology, focus, and MIP OME-TIFF inputs.
+    morphology_size_bytes = sum(
+        int(item.get("size_bytes", 0))
+        for item in file_inventory
+        if Path(str(item.get("relative_path", item.get("path", "")))).name.lower().startswith(
+            "morphology"
         )
-        if morph_files:
-            morphology_size_gb = round(
-                sum(f.stat().st_size for f in morph_files) / (1024 ** 3), 2
-            )
+        and Path(str(item.get("relative_path", item.get("path", "")))).name.lower().endswith(
+            (".ome.tif", ".ome.tiff")
+        )
+    )
+    if morphology_size_bytes:
+        morphology_size_gb = _bytes_to_gb(morphology_size_bytes)
+    elif input_dir and Path(input_dir).is_dir():
+        morph_files = (
+            list(Path(input_dir).rglob("morphology.ome.tif"))
+            + list(Path(input_dir).rglob("morphology.ome.tiff"))
+        )
+        morphology_size_gb = _bytes_to_gb(sum(f.stat().st_size for f in morph_files)) if morph_files else None
+    else:
+        morphology_size_gb = None
+
+    regions = sidecar_run_metrics.get("regions")
+    if regions is None:
+        regions = meta.get("meta_regions")
+    if regions is None and region_counts:
+        regions = len(region_counts)
+
+    cells_written_total = (
+        sum(int(region["cells"]) for region in region_counts) if region_counts else None
+    )
+    cells_total = sidecar_run_metrics.get("cells_total")
+    if cells_total is None:
+        cells_total = meta.get("meta_cells")
+    if cells_total is None:
+        cells_total = cells_written_total
+
+    transcripts_total = sidecar_run_metrics.get("transcripts_total")
+    if transcripts_total is None:
+        transcripts_total = meta.get("meta_transcripts")
+    if transcripts_total is None and region_counts:
+        transcripts_total = sum(int(region["transcripts"]) for region in region_counts)
+
+    def _run_metric(sidecar_key: str, metadata_key: str):
+        value = sidecar_run_metrics.get(sidecar_key)
+        return value if value is not None else meta.get(metadata_key)
 
     return {
         # Identity
@@ -644,6 +934,10 @@ def _assemble_run(row: dict) -> dict:
         # Status
         "status": status,
         "exit_code": out.get("exit_code"),
+        "input_dir": input_dir,
+        "lasso_file": lasso_file,
+        "he_image": he_image,
+        "metrics_json": metrics_json_path,
         # Timing
         "wall_s": wall_s,
         "wall_fmt": _fmt_seconds(wall_s),
@@ -656,24 +950,37 @@ def _assemble_run(row: dict) -> dict:
         "avg_ram_fmt": _fmt_gb(avg_ram_gb),
         "requested_ram_gb": row.get("ram_gb") or "-",
         # xenium-splitter metrics
-        "regions": meta.get("meta_regions"),
-        "cells_total": meta.get("meta_cells"),
-        "transcripts_total": meta.get("meta_transcripts"),
-        "total_entities": meta.get("meta_total_entities"),
-        "files_processed": meta.get("meta_files_processed"),
-        "files_skipped": meta.get("meta_files_skipped"),
-        "files_failed": meta.get("meta_files_failed"),
-        "files_discovered": meta.get("meta_files_discovered"),
-        "splitter_duration_s": meta.get("meta_duration_s"),
-        "slowest_file": meta.get("meta_slowest_file") or "-",
-        "slowest_file_s": meta.get("meta_slowest_file_s"),
+        "regions": regions,
+        "cells_total": cells_total,
+        "cells_written_total": cells_written_total,
+        "transcripts_total": transcripts_total,
+        "total_entities": _run_metric("total_entities", "meta_total_entities"),
+        "files_processed": _run_metric("files_processed", "meta_files_processed"),
+        "files_skipped": _run_metric("files_skipped", "meta_files_skipped"),
+        "files_failed": _run_metric("files_failed", "meta_files_failed"),
+        "files_discovered": _run_metric("files_discovered", "meta_files_discovered"),
+        "splitter_duration_s": _run_metric("splitter_duration_s", "meta_duration_s"),
+        "slowest_file": _run_metric("slowest_file", "meta_slowest_file") or "-",
+        "slowest_file_s": _run_metric("slowest_file_s", "meta_slowest_file_s"),
         # File sizes
         "he_size_gb": he_size_gb,
         **he_metadata,
+        "input_dir_size_gb": input_dir_size_gb,
+        "lasso_size_gb": lasso_size_gb,
+        "transcript_zarr_mb": _archive_size_mb(input_dir, file_inventory, "transcripts.zarr.zip"),
+        "cell_zarr_mb": _archive_size_mb(input_dir, file_inventory, "cells.zarr.zip"),
+        "input_files": file_inventory,
+        "input_file_count": len(file_inventory),
+        "region_counts": region_counts,
         "input_image_compressions": input_image_compressions,
         "input_image_compression": "; ".join(input_image_compressions),
         "morphology_size_gb": morphology_size_gb,
-        "output_size_gb": output_size_gb,
+        "morphology_file_size_gb": morphology_file_size_gb,
+        "morphology_width_px": morphology_image.get("width_px"),
+        "morphology_height_px": morphology_image.get("height_px"),
+        "morphology_pixel_count": morphology_image.get("spatial_pixel_count"),
+        "morphology_plane_count": morphology_image.get("plane_count"),
+        "morphology_sample_count": morphology_image.get("sample_count"),
         # Paths
         "output_dir": output_dir,
         "log_out": row["log_out"],
@@ -717,20 +1024,26 @@ _TABLE_HEADERS = [
     ("AvgRAM(GB)",    11),
     ("Regions",        8),
     ("Cells",          9),
+    ("Cells written", 14),
     ("Transcripts",   13),
-    ("Files ok",       9),
-    ("Files fail",    10),
+    ("TranscriptZarr(MB)", 20),
+    ("CellZarr(MB)",   14),
     ("H&E(GB)",        9),
     ("H&E format",    12),
     ("H&E WxH(px)",   16),
-    ("H&E pixels",    16),
-    ("Output(GB)",    11),
+    ("Morph(GB)",     11),
+    ("Morph WxH(px)", 16),
+    ("Morph planes",  13),
 ]
 
 _SEPARATOR = "-" * sum(w for _, w in _TABLE_HEADERS)
 
 
-def _print_summary_table(records: list[dict], sort_by: str) -> None:
+def _print_summary_table(
+    records: list[dict],
+    sort_by: str,
+    metrics_only: bool = False,
+) -> None:
     # Sort
     def _sort_key(r: dict):
         v = r.get(sort_by)
@@ -743,10 +1056,16 @@ def _print_summary_table(records: list[dict], sort_by: str) -> None:
 
     records = sorted(records, key=_sort_key)
 
-    header = "".join(_col(h, w) for h, w in _TABLE_HEADERS)
-    print(_SEPARATOR)
+    table_headers = [
+        (header, width)
+        for header, width in _TABLE_HEADERS
+        if not (metrics_only and header == "Status")
+    ]
+    separator = "-" * sum(width for _, width in table_headers)
+    header = "".join(_col(h, w) for h, w in table_headers)
+    print(separator)
     print(header)
-    print(_SEPARATOR)
+    print(separator)
 
     for r in records:
         row_vals = [
@@ -759,9 +1078,10 @@ def _print_summary_table(records: list[dict], sort_by: str) -> None:
             _fmt_gb(r["avg_ram_gb"]),
             _fmt_int(r["regions"]),
             _fmt_int(r["cells_total"]),
+            _fmt_int(r["cells_written_total"]),
             _fmt_int(r["transcripts_total"]),
-            _fmt_int(r["files_processed"]),
-            _fmt_int(r["files_failed"]),
+            f"{r['transcript_zarr_mb']:.2f}" if r["transcript_zarr_mb"] is not None else "-",
+            f"{r['cell_zarr_mb']:.2f}" if r["cell_zarr_mb"] is not None else "-",
             _fmt_gb(r["he_size_gb"]),
             r["he_format"] or "-",
             (
@@ -769,12 +1089,20 @@ def _print_summary_table(records: list[dict], sort_by: str) -> None:
                 if r["he_width_px"] is not None and r["he_height_px"] is not None
                 else "-"
             ),
-            f"{r['he_pixel_count']:,}" if r["he_pixel_count"] is not None else "-",
-            _fmt_gb(r["output_size_gb"]),
+            _fmt_gb(r["morphology_file_size_gb"]),
+            (
+                f"{r['morphology_width_px']}x{r['morphology_height_px']}"
+                if r["morphology_width_px"] is not None
+                and r["morphology_height_px"] is not None
+                else "-"
+            ),
+            _fmt_int(r["morphology_plane_count"]),
         ]
-        print("".join(_col(v, w) for v, w in zip(row_vals, (w for _, w in _TABLE_HEADERS))))
+        if metrics_only:
+            row_vals.pop(2)
+        print("".join(_col(v, w) for v, w in zip(row_vals, (w for _, w in table_headers))))
 
-    print(_SEPARATOR)
+    print(separator)
 
 
 # ---------------------------------------------------------------------------
@@ -787,6 +1115,9 @@ def _print_run_detail(r: dict) -> None:
     print(f"{'='*60}")
     print(f"  Dataset      : {r['name']}  (mode={r['mode']})")
     print(f"  Job ID       : {r['job_id']}")
+    print(f"  Input dir    : {r['input_dir'] or '-'}")
+    print(f"  LASSO file   : {r['lasso_file'] or '-'}")
+    print(f"  H&E source   : {r['he_image'] or '-'}")
     print(f"  Output dir   : {r['output_dir'] or '(unknown)'}")
 
     print(f"\n  Timing")
@@ -802,6 +1133,8 @@ def _print_run_detail(r: dict) -> None:
     print(f"\n  xenium-splitter")
     print(f"    Regions    : {_fmt_int(r['regions'])}")
     print(f"    Cells      : {_fmt_int(r['cells_total'])}")
+    if r["cells_written_total"] is not None:
+        print(f"    Cells written in regions: {_fmt_int(r['cells_written_total'])}")
     print(f"    Transcripts: {_fmt_int(r['transcripts_total'])}")
     print(f"    Files ok   : {_fmt_int(r['files_processed'])}  "
           f"skipped={_fmt_int(r['files_skipped'])}  "
@@ -812,6 +1145,14 @@ def _print_run_detail(r: dict) -> None:
         print(f"    Slowest    : {r['slowest_file']}{s_s}")
 
     print(f"\n  File sizes")
+    print(
+        f"    Transcript Zarr: {r['transcript_zarr_mb']:.2f} MB"
+        if r["transcript_zarr_mb"] is not None else "    Transcript Zarr: -"
+    )
+    print(
+        f"    Cell Zarr      : {r['cell_zarr_mb']:.2f} MB"
+        if r["cell_zarr_mb"] is not None else "    Cell Zarr      : -"
+    )
     print(f"    H&E image  : {_fmt_gb(r['he_size_gb'])} GB")
     print(f"    H&E format : {r['he_format'] or '-'}")
     print(f"    H&E codec  : {r['he_compression'] or '-'}")
@@ -819,17 +1160,30 @@ def _print_run_detail(r: dict) -> None:
         print(f"    H&E size   : {r['he_width_px']} x {r['he_height_px']} px")
     else:
         print("    H&E size   : -")
-    print(
-        "    H&E pixels : "
-        f"{r['he_pixel_count']:,}" if r["he_pixel_count"] is not None else "    H&E pixels : -"
-    )
-    print(f"    Morphology : {_fmt_gb(r['morphology_size_gb'])} GB")
+    print(f"    Input dir  : {_fmt_gb(r['input_dir_size_gb'])} GB")
+    print(f"    LASSO file : {_fmt_gb(r['lasso_size_gb'])} GB")
+    print(f"    Morphology file: {_fmt_gb(r['morphology_file_size_gb'])} GB")
+    if r["morphology_width_px"] is not None and r["morphology_height_px"] is not None:
+        print(
+            f"    Morphology size: {r['morphology_width_px']} x "
+            f"{r['morphology_height_px']} px"
+        )
+    else:
+        print("    Morphology size: -")
+    print(f"    Morphology planes: {_fmt_int(r['morphology_plane_count'])}")
+    print(f"    Morphology family: {_fmt_gb(r['morphology_size_gb'])} GB")
+    print(f"    Input files: {r['input_file_count']}")
     if r["input_image_compressions"]:
         print("    Input image compression:")
         for image_compression in r["input_image_compressions"]:
             print(f"      {image_compression}")
-    print(f"    Output dir : {_fmt_gb(r['output_size_gb'])} GB")
-
+    if r["region_counts"]:
+        print("    Per-region counts:")
+        for region in r["region_counts"]:
+            print(
+                f"      {region['region_id']}: cells={region['cells']}, "
+                f"transcripts={region['transcripts']}"
+            )
     print(f"\n  Logs")
     print(f"    stdout     : {r['log_out']}")
     print(f"    stderr     : {r['log_err']}")
@@ -840,25 +1194,36 @@ def _print_run_detail(r: dict) -> None:
 # ---------------------------------------------------------------------------
 
 _CSV_FIELDS = [
-    "name", "mode", "job_name", "job_id", "status", "exit_code",
+    "name", "mode", "status", "job_name", "job_id",
+    "input_dir", "lasso_file", "he_image", "metrics_json",
     "wall_s", "cpu_s", "peak_ram_gb", "avg_ram_gb", "requested_ram_gb",
-    "regions", "cells_total", "transcripts_total", "total_entities",
-    "files_processed", "files_skipped", "files_failed", "files_discovered",
+    "regions", "cells_total", "cells_written_total", "transcripts_total", "total_entities",
+    "transcript_zarr_mb", "cell_zarr_mb",
     "splitter_duration_s", "slowest_file", "slowest_file_s",
-    "he_size_gb", "he_format", "he_width_px", "he_height_px", "he_pixel_count",
+    "he_size_gb", "he_format", "he_width_px", "he_height_px",
     "he_compression", "input_image_compression",
-    "morphology_size_gb", "output_size_gb",
+    "input_dir_size_gb", "lasso_size_gb", "input_file_count",
+    "input_files_json", "region_counts_json",
+    "morphology_file_size_gb", "morphology_width_px", "morphology_height_px",
+    "morphology_plane_count", "morphology_size_gb",
     "output_dir", "log_out", "log_err",
 ]
 
 
-def _write_csv(records: list[dict], path: str) -> None:
+def _write_csv(records: list[dict], path: str, metrics_only: bool = False) -> None:
     csv_path = Path(path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [field for field in _CSV_FIELDS if not (metrics_only and field == "status")]
     with open(csv_path, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=_CSV_FIELDS, extrasaction="ignore")
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(records)
+        serialized_records = []
+        for record in records:
+            csv_record = dict(record)
+            csv_record["input_files_json"] = json.dumps(record.get("input_files", []))
+            csv_record["region_counts_json"] = json.dumps(record.get("region_counts", []))
+            serialized_records.append(csv_record)
+        writer.writerows(serialized_records)
     print(f"\nCSV written to: {csv_path}")
 
 
@@ -922,7 +1287,11 @@ def main() -> None:
     print(f"Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Log dir   : {args.log_dir}\n")
 
-    _print_summary_table(records, sort_by=args.sort_by)
+    _print_summary_table(
+        records,
+        sort_by=args.sort_by,
+        metrics_only=args.metrics_only,
+    )
     _print_statistics(records)
 
     if not args.no_detail:
@@ -933,7 +1302,7 @@ def main() -> None:
             _print_run_detail(r)
 
     if args.csv:
-        _write_csv(records, args.csv)
+        _write_csv(records, args.csv, metrics_only=args.metrics_only)
 
 
 if __name__ == "__main__":

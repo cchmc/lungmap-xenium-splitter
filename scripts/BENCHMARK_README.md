@@ -7,12 +7,13 @@ across different datasets, data sizes, and processing modes on an LSF-based HPC 
 
 ## Files
 
-| File                           | Purpose                                                            |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `benchmark_submit.py`          | Build and submit LSF jobs; write manifest and rendered job scripts |
-| `benchmark_report.py`          | Parse logs after jobs finish and print a formatted metrics report  |
-| `benchmark_config_example.csv` | Example benchmark configuration showing required columns           |
-| `benchmark_example_output.txt` | Historical sample report; current fields may differ                |
+| File                           | Purpose                                                               |
+| ------------------------------ | --------------------------------------------------------------------- |
+| `benchmark_submit.py`          | Build and submit LSF jobs; write manifest and rendered job scripts    |
+| `benchmark_capture.py`         | Capture source sizes, image metadata, and run counts on compute nodes |
+| `benchmark_report.py`          | Parse logs after jobs finish and print a formatted metrics report     |
+| `benchmark_config_example.csv` | Example benchmark configuration showing required columns              |
+| `benchmark_example_output.txt` | Historical sample report; current fields may differ                   |
 
 ---
 
@@ -23,9 +24,10 @@ across different datasets, data sizes, and processing modes on an LSF-based HPC 
   (conda environment, virtualenv, or system install).
 - **`/usr/bin/time`** — used inside each job to capture precise peak RSS and wall time.
   Present on Linux; may require `time` package on some minimal images.
-- Python ≥ 3.10 on the submit host. The report uses Pillow for common raster image
-  dimensions and tifffile for TIFF/OME-TIFF/SVS dimensions when those packages are
-  available; otherwise it still reports the H&E format inferred from the filename.
+- Python ≥ 3.10 on the submit host and in the activated compute-node environment.
+  The compute-node collector uses the installed Pillow/tifffile dependencies to read
+  image metadata without decoding pixel data; TIFF dimensions/codecs are still
+  available from logs/paths when older sidecars are absent.
 
 ---
 
@@ -57,6 +59,22 @@ my_dataset,/path/to/xenium/outs,,/path/to/lasso.csv,2:00,32,6:00,64
 > As a starting point, request 1.5–2× the estimated peak RAM so the job is not killed
 > by LSF memory limits. Adjust based on what the report shows.
 
+### Region-count sweep for RAM/runtime estimation
+
+Generate five equal-area subdivisions per sample (1x, 2x, 4x, 8x, and 16x the
+original region count) and a 20-row config:
+
+```bash
+python generate_ram_benchmark_regions.py
+```
+
+This writes `regions/ram_runtime/` and `benchmark_config_ram_runtime.csv`. The
+generated config points to `/data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime`;
+copy the generated region files to that directory on the cluster before submitting.
+The generator preserves each sample's selected area, but copies the source config's
+walltime and RAM requests unchanged. Increase walltime for high subdivision factors,
+especially `GSE297945-A1_x16` (224 regions), if required by your cluster limits.
+
 ### 2. Write an environment setup script (recommended)
 
 Create a shell script that activates your environment so each job uses the correct
@@ -85,9 +103,9 @@ This submits two LSF jobs per dataset row (one `data_only`, one `with_images`) a
 writes a `benchmark_manifest.csv` to the log directory.
 The log directory, output base, and per-run output directories are created if they
 do not already exist. `--dry-run` does not create directories or files.
-Before submitting jobs, prior `xsplit_*.out`, `xsplit_*.err`, `xsplit_*.job`, and
-`benchmark_manifest.csv` files in the log directory are removed. Other files, such
-as generated reports, are preserved.
+Before submitting jobs, prior `xsplit_*.out`, `xsplit_*.err`, `xsplit_*.job`,
+`xsplit_*.metrics.json`, and `benchmark_manifest.csv` files in the log directory
+are removed. Other files, such as generated reports, are preserved.
 
 ### 4. Wait for jobs to finish
 
@@ -157,13 +175,14 @@ Utility:
 
 ### Output per job
 
-Each submitted job produces three files in `--log-dir`:
+Each submitted job produces four files in `--log-dir`:
 
-| File                       | Contents                                                              |
-| -------------------------- | --------------------------------------------------------------------- |
-| `xsplit_<name>_<mode>.out` | LSF stdout: job markers, xenium-splitter output, LSF resource summary |
-| `xsplit_<name>_<mode>.err` | LSF stderr: `/usr/bin/time -v` resource detail, xenium-splitter logs  |
-| `xsplit_<name>_<mode>.job` | Rendered job script (can be resubmitted with `bsub < file.job`)       |
+| File                                | Contents                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `xsplit_<name>_<mode>.out`          | LSF stdout: job markers, xenium-splitter output, LSF resource summary                  |
+| `xsplit_<name>_<mode>.err`          | LSF stderr: `/usr/bin/time -v` resource detail, xenium-splitter logs                   |
+| `xsplit_<name>_<mode>.job`          | Rendered job script (can be resubmitted with `bsub < file.job`)                        |
+| `xsplit_<name>_<mode>.metrics.json` | Source paths/sizes, image metadata, and per-region counts captured on the compute node |
 
 ---
 
@@ -177,13 +196,14 @@ Optional:
   --manifest / -m     Path to benchmark_manifest.csv (default: auto-detected in --log-dir)
   --csv FILE          Write summary table to this CSV file
   --no-detail         Suppress per-run detail sections; print summary table only
-  --sort-by           Sort summary table by: name (default), mode, status,
+  --metrics-only      Hide the Status column in the summary table and CSV
+  --sort-by           Sort summary table by: name (default), mode,
                       wall_s, or peak_ram_gb
 ```
 
 ### Data sources parsed per run
 
-The report assembles metrics from three sources in priority order:
+The report assembles metrics from four sources in priority order:
 
 1. **`.err` log — `/usr/bin/time -v` output** (most precise):
    - Peak RSS (maximum resident set size, kbytes → GB)
@@ -196,7 +216,13 @@ The report assembles metrics from three sources in priority order:
    - Job completion status (`Successfully completed.` / `Exited with exit code N.` /
      `TERM_RUNLIMIT` / `TERM_MEMLIMIT`)
 
-3. **`run_metadata_README.md`** in the xenium-splitter output directory:
+3. **`*.metrics.json`** written beside the logs on the compute node:
+
+- Input, LASSO, H&E, and output paths; input/LASSO/H&E byte sizes
+- Recursive input-file inventory with sizes and recognized image metadata
+- Per-region cell and transcript counts, plus run summary metrics
+
+4. **`run_metadata_README.md`** in the xenium-splitter output directory (fallback):
    - Number of regions, cells, total entities
    - Files processed / skipped / failed / discovered
    - xenium-splitter internal duration (seconds)
@@ -204,14 +230,32 @@ The report assembles metrics from three sources in priority order:
 
 Additionally, at report time:
 
-- H&E image file size (GB) — measured from the path in the manifest
-- H&E format, width, height, and total pixel count — read from image headers without
+- `TranscriptZarr(MB)` and `CellZarr(MB)` — on-disk sizes of the root-level
+  `transcripts.zarr.zip` and `cells.zarr.zip` input archives, using decimal MB
+  (1 MB = 1,000,000 bytes) to match the RAM estimator. Values come from the
+  sidecar inventory or accessible input files and appear in both report modes,
+  per-run details, and CSV (`transcript_zarr_mb`, `cell_zarr_mb`). Missing sizes
+  are shown as `-`, not zero.
+- H&E image file size (GB) — read from the compute-node sidecar; older runs fall
+  back to measuring the path in the manifest when accessible
+- H&E format and width × height — read from image headers without
   decoding the image; SVS dimensions use OpenSlide when available and otherwise fall
   back to tifffile
-- H&E compression codec and codecs for recognized images under `input_dir` — read
-  from TIFF page metadata or inferred from standard raster formats
-- Morphology image size (GB) — `morphology*.ome.tif` files in `input_dir`
-- xenium-splitter output directory size (GB) — recursive `du`
+- H&E compression codec, plus sizes/codecs for input files — read from the sidecar;
+  older runs inspect accessible paths in `input_dir`
+- Base morphology file size, spatial width × height, and plane count — read from
+  TIFF series metadata without decoding image pixels
+- Morphology family size — combined size of `morphology.ome.tif`,
+  `morphology_focus.ome.tif`, and `morphology_mip.ome.tif`
+- The output directory path is recorded for provenance; output-directory size is
+  not included in the metrics table
+
+The report keeps the aggregate cell count and the sum of per-region cells written
+as separate fields. Failed or forcibly terminated jobs may have partial counts or
+missing size values if the post-run sidecar could not be written.
+The summary metrics table includes `Status` by default; `--metrics-only` hides it.
+`Files ok` and `Files fail` are excluded from the summary table and remain in the
+per-run detail section.
 
 ### Report status values
 
