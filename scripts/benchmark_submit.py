@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Submit LSF benchmark jobs for xenium-splitter.
 
-Reads a CSV config file listing Xenium datasets and submits two LSF jobs per
+Reads a CSV config file listing Xenium datasets and submits three LSF jobs per
 dataset:
 
   <name>_data_only    -- xenium-splitter with --skip-images (measures data
                           processing speed at lower RAM)
   <name>_with_images  -- xenium-splitter full run including all image processing
                           (measures peak RAM and image-processing throughput)
+    <name>_images_only  -- xenium-splitter with --images-only (isolates image work)
 
 Each job:
   - Wraps the xenium-splitter call with /usr/bin/time -v to capture peak RSS
@@ -107,11 +108,11 @@ def _parse_args() -> argparse.Namespace:
     # Run selection
     p.add_argument(
         "--modes",
-        choices=["both", "data_only", "with_images"],
-        default="both",
+        choices=["all", "both", "data_only", "with_images", "images_only"],
+        default="all",
         help=(
-            "Which job variants to submit: 'both' (default), "
-            "'data_only' (--skip-images only), or 'with_images' (images only)."
+            "Job variants: 'all' (default) submits data-only, full, and images-only runs; "
+            "'both' submits data-only and full runs; individual modes select one run."
         ),
     )
 
@@ -422,8 +423,9 @@ def main() -> None:
     )
 
     # Decide which modes to run
-    run_data_only = args.modes in ("both", "data_only")
-    run_with_images = args.modes in ("both", "with_images")
+    run_data_only = args.modes in ("all", "both", "data_only")
+    run_with_images = args.modes in ("all", "both", "with_images")
+    run_images_only = args.modes in ("all", "images_only")
 
     mode_specs: list[dict] = []
     if run_data_only:
@@ -439,6 +441,13 @@ def main() -> None:
             "flags": "",
             "walltime_key": "walltime_with_images",
             "ram_key": "ram_gb_with_images",
+        })
+    if run_images_only:
+        mode_specs.append({
+            "suffix": "images_only",
+            "flags": "--images-only",
+            "walltime_key": "walltime_images_only",
+            "ram_key": "ram_gb_images_only",
         })
 
     manifest_rows: list[dict] = []
@@ -456,8 +465,8 @@ def main() -> None:
             log_err = str(log_dir / f"{job_name}.err")
             job_file = str(log_dir / f"{job_name}.job")
             metrics_json = str(log_dir / f"{job_name}.metrics.json")
-            ram_gb = row[spec["ram_key"]]
-            walltime = row[spec["walltime_key"]]
+            ram_gb = row.get(spec["ram_key"]) or row["ram_gb_with_images"]
+            walltime = row.get(spec["walltime_key"]) or row["walltime_with_images"]
 
             if not args.dry_run:
                 Path(output_dir).mkdir(parents=True, exist_ok=True)

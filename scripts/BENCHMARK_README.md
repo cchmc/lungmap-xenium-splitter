@@ -55,6 +55,10 @@ my_dataset,/path/to/xenium/outs,,/path/to/lasso.csv,2:00,32,6:00,64
 | `walltime_with_images` | `HH:MM`                | LSF wall-time limit for full run                       |
 | `ram_gb_with_images`   | integer GB             | RAM to request for full run                            |
 
+Optional columns `walltime_images_only` and `ram_gb_images_only` override the
+image-only job resources. Omitted or blank values use the corresponding
+`walltime_with_images` and `ram_gb_with_images` settings.
+
 > **Sizing guidance:** See the RAM Requirements section in the main README.md.
 > As a starting point, request 1.5–2× the estimated peak RAM so the job is not killed
 > by LSF memory limits. Adjust based on what the report shows.
@@ -99,8 +103,10 @@ python benchmark_submit.py \
     --env-script /path/to/activate_env.sh
 ```
 
-This submits two LSF jobs per dataset row (one `data_only`, one `with_images`) and
+This submits three LSF jobs per dataset row (`data_only`, `with_images`, and
+`images_only`) and
 writes a `benchmark_manifest.csv` to the log directory.
+The 20-row region-count sweep therefore submits 60 jobs by default.
 The log directory, output base, and per-run output directories are created if they
 do not already exist. `--dry-run` does not create directories or files.
 Before submitting jobs, prior `xsplit_*.out`, `xsplit_*.err`, `xsplit_*.job`,
@@ -160,7 +166,10 @@ Environment:
                       a non-installed checkout.
 
 Run selection:
-  --modes             both (default), data_only, or with_images
+  --modes             all (default), both, data_only, with_images, or images_only
+                      all: data-only, full, and image-only jobs
+                      both: data-only and full jobs (legacy behavior)
+                      images_only: pass --images-only; no tabular/Zarr processing
 
 Output:
   --timestamp-outputs Append UTC timestamp to output dirs to preserve prior runs
@@ -343,7 +352,7 @@ and `benchmark_manifest.csv` files from the selected log directory.
   cluster.
 - Use `--modes data_only` for an initial quick pass to measure data processing speed
   and RAM without the image overhead.
-- Use `--modes with_images` with `--extra-args '--images-only'` to benchmark image
+- Use `--modes images_only` to benchmark image
   processing in isolation (no transcript/cell data loaded).
 - The `--sort-by peak_ram_gb` option is useful for identifying which datasets are
   closest to running out of memory.

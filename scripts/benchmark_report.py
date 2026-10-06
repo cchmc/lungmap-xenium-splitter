@@ -746,6 +746,9 @@ def _discover_from_logs(log_dir: str) -> list[dict]:
         elif job_name.endswith("_with_images"):
             mode = "with_images"
             name = job_name[len("xsplit_"):-len("_with_images")]
+        elif job_name.endswith("_images_only"):
+            mode = "images_only"
+            name = job_name[len("xsplit_"):-len("_images_only")]
         else:
             mode = "unknown"
             name = job_name[len("xsplit_"):]
@@ -1244,7 +1247,7 @@ def _print_statistics(records: list[dict]) -> None:
     print(f"  Failed         : {len(failed)}")
     print(f"  Other (running/timeout/memlimit/missing): {len(other)}")
 
-    for mode in ("data_only", "with_images"):
+    for mode in ("data_only", "with_images", "images_only"):
         mode_success = [r for r in success if r["mode"] == mode]
         if not mode_success:
             continue
