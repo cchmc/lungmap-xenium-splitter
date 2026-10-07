@@ -7,6 +7,7 @@ import tempfile
 
 import typer
 
+from xenium_splitter.estimator import estimate_ram
 from xenium_splitter.models import SplitConfig
 from xenium_splitter.show_regions import create_regions_preview
 from xenium_splitter.splitter import run_split
@@ -80,6 +81,65 @@ def show_regions_command(
     typer.echo(f"Source image: {result['source_path']}")
     typer.echo(f"Regions drawn: {result['region_count']}")
     typer.echo(f"Output image: {result['output_path']}")
+
+
+@app.command("estimate-ram")
+def estimate_ram_command(
+    input_dir: Path = typer.Option(..., exists=True, file_okay=False, dir_okay=True),
+    lasso_file: Path = typer.Option(..., exists=True, file_okay=True, dir_okay=False),
+    output_dir: Path = typer.Option(..., file_okay=False, dir_okay=True),
+    he_image: Path | None = typer.Option(None, exists=True, file_okay=True, dir_okay=False),
+    convert_svs_to_ome: bool = typer.Option(
+        False, help="If --he-image is .svs, also emit OME-TIFF outputs.",
+    ),
+    squash_layers: bool = typer.Option(
+        True, "--squash-layers/--no-squash-layers",
+        help="Flatten multi-layer image stacks when possible.",
+    ),
+    include_glob: list[str] = typer.Option(
+        None, help="Optional glob patterns (repeatable) to limit files from input-dir.",
+    ),
+    skip_images: bool = typer.Option(
+        False, "--skip-images/--process-images", help="Skip image extraction.",
+    ),
+    overlays: bool = typer.Option(
+        False, "--overlays/--no-overlays", help="Write morphology grid overlays.",
+    ),
+    recalculate_diffexp: bool = typer.Option(
+        True, "--recalculate-diffexp/--skip-diffexp-recalc",
+        help="Recompute analysis/diffexp outputs.",
+    ),
+    write_cell_feature_matrix_zarr: bool = typer.Option(
+        True, "--write-cell-feature-matrix-zarr/--skip-cell-feature-matrix-zarr",
+        help="Write cell_feature_matrix.zarr.zip outputs.",
+    ),
+    copy_transcripts: bool = typer.Option(
+        False, "--copy-transcripts", help="Copy transcript files without filtering or rebasing.",
+    ),
+    images_only: bool = typer.Option(
+        False, "--images-only", help="Process only images; conflicts with --skip-images.",
+    ),
+    verbose: bool = typer.Option(
+        False, "-v", "--verbose", help="Enable debug logging.",
+    ),
+) -> None:
+    """Estimate peak RAM without splitting files or creating output directories."""
+    _configure_app_logging(verbose)
+    if images_only and skip_images:
+        raise typer.BadParameter(
+            "--images-only and --skip-images are mutually exclusive: "
+            "--images-only processes only images while --skip-images skips all images."
+        )
+    try:
+        peak_ram_gb = estimate_ram(input_dir)
+    except (FileNotFoundError, OSError) as exc:
+        raise typer.BadParameter(str(exc), param_hint="--input-dir") from exc
+
+    typer.echo(f"Estimated peak RAM: {peak_ram_gb:.2f} GB")
+    typer.echo("Archive sizes use decimal MB (1 MB = 1,000,000 bytes).")
+    typer.echo("Only archive sizes affect this equation; split options are not modeled.")
+    typer.echo("No files were written.")
+    typer.echo("This is a rough peak estimate, not a guaranteed RAM limit.")
 
 
 @app.command("split")
