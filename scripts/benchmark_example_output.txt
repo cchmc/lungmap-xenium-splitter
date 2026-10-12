@@ -1,9 +1,9 @@
-Loaded manifest: /users/for8es/xenium_splitter/benchmark_mem_opt2/benchmark_manifest.csv
+Loaded manifest: /tmp/xenium_splitter/benchmark_mem_opt2/benchmark_manifest.csv
 Processing 40 run record(s)...
 
 xenium-splitter Benchmark Report
 Generated : 2026-10-06 07:13:48
-Log dir   : /users/for8es/xenium_splitter/benchmark_mem_opt2
+Log dir   : /tmp/xenium_splitter/benchmark_mem_opt2
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Name                Mode        Status   Wall     CPU      PeakRAM(GB) AvgRAM(GB) Regions Cells    Cells written Transcripts  H&E(GB)  H&E format  H&E WxH(px)     Morph(GB)  Morph WxH(px)   Morph planes 
@@ -76,10 +76,10 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
 ============================================================
   Dataset      : GSM7990532_x1  (mode=data_only)
   Job ID       : 1378184
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x1_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x1_data_only
 
   Timing
     Wall clock : 17m40s  (1061s)
@@ -121,18 +121,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p001: cells=42552, transcripts=8715472
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.err
 
 ============================================================
   xsplit_GSM7990532_x1_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x1  (mode=with_images)
   Job ID       : 1378185
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x1_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x1_with_images
 
   Timing
     Wall clock : 34m13s  (2053s)
@@ -174,18 +174,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p001: cells=42552, transcripts=8715472
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.err
 
 ============================================================
   xsplit_GSM7990532_x2_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x2  (mode=data_only)
   Job ID       : 1378186
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x2_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x2_data_only
 
   Timing
     Wall clock : 25m12s  (1513s)
@@ -231,18 +231,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p002: cells=20208, transcripts=4208921
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.err
 
 ============================================================
   xsplit_GSM7990532_x2_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x2  (mode=with_images)
   Job ID       : 1378187
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x2_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x2_with_images
 
   Timing
     Wall clock : 33m27s  (2007s)
@@ -288,18 +288,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p002: cells=20208, transcripts=4208921
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.err
 
 ============================================================
   xsplit_GSM7990532_x4_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x4  (mode=data_only)
   Job ID       : 1378188
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x4_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x4_data_only
 
   Timing
     Wall clock : 18m31s  (1111s)
@@ -353,18 +353,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p004: cells=7378, transcripts=1457346
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.err
 
 ============================================================
   xsplit_GSM7990532_x4_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x4  (mode=with_images)
   Job ID       : 1378189
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x4_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x4_with_images
 
   Timing
     Wall clock : 42m13s  (2534s)
@@ -418,18 +418,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p004: cells=7378, transcripts=1457346
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.err
 
 ============================================================
   xsplit_GSM7990532_x8_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x8  (mode=data_only)
   Job ID       : 1378190
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x8_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x8_data_only
 
   Timing
     Wall clock : 49m34s  (2975s)
@@ -499,18 +499,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p008: cells=2199, transcripts=462479
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.err
 
 ============================================================
   xsplit_GSM7990532_x8_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990532_x8  (mode=with_images)
   Job ID       : 1378191
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x8_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x8_with_images
 
   Timing
     Wall clock : 1h21m24s  (4884s)
@@ -580,18 +580,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p008: cells=2199, transcripts=462479
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.err
 
 ============================================================
   xsplit_GSM7990532_x16_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSM7990532_x16  (mode=data_only)
   Job ID       : 1378192
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x16_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x16_data_only
 
   Timing
     Wall clock : 1h00m20s  (3620s)
@@ -625,18 +625,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology_mip.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.err
 
 ============================================================
   xsplit_GSM7990532_x16_with_images  [TIMEOUT]
 ============================================================
   Dataset      : GSM7990532_x16  (mode=with_images)
   Job ID       : 1378193
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x16_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990532_x16_with_images
 
   Timing
     Wall clock : 2h00m18s  (7218s)
@@ -670,18 +670,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology_mip.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.err
 
 ============================================================
   xsplit_GSM7990533_x1_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x1  (mode=data_only)
   Job ID       : 1378194
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x1_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x1_data_only
 
   Timing
     Wall clock : 1m10s  (71s)
@@ -721,18 +721,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p001: cells=2096, transcripts=215252
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.err
 
 ============================================================
   xsplit_GSM7990533_x1_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x1  (mode=with_images)
   Job ID       : 1378195
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x1_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x1_with_images
 
   Timing
     Wall clock : 2m27s  (148s)
@@ -772,18 +772,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p001: cells=2096, transcripts=215252
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.err
 
 ============================================================
   xsplit_GSM7990533_x2_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x2  (mode=data_only)
   Job ID       : 1378196
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x2_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x2_data_only
 
   Timing
     Wall clock : 3m14s  (195s)
@@ -825,18 +825,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p002: cells=1133, transcripts=110082
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.err
 
 ============================================================
   xsplit_GSM7990533_x2_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x2  (mode=with_images)
   Job ID       : 1378197
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x2_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x2_with_images
 
   Timing
     Wall clock : 2m01s  (121s)
@@ -878,18 +878,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p002: cells=1133, transcripts=110082
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.err
 
 ============================================================
   xsplit_GSM7990533_x4_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x4  (mode=data_only)
   Job ID       : 1378198
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x4_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x4_data_only
 
   Timing
     Wall clock : 2m35s  (155s)
@@ -935,18 +935,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p004: cells=588, transcripts=57748
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.err
 
 ============================================================
   xsplit_GSM7990533_x4_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x4  (mode=with_images)
   Job ID       : 1378199
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x4_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x4_with_images
 
   Timing
     Wall clock : 3m26s  (206s)
@@ -992,18 +992,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p004: cells=588, transcripts=57748
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.err
 
 ============================================================
   xsplit_GSM7990533_x8_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x8  (mode=data_only)
   Job ID       : 1378200
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x8_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x8_data_only
 
   Timing
     Wall clock : 4m49s  (290s)
@@ -1057,18 +1057,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p008: cells=266, transcripts=29243
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.err
 
 ============================================================
   xsplit_GSM7990533_x8_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x8  (mode=with_images)
   Job ID       : 1378201
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x8_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x8_with_images
 
   Timing
     Wall clock : 12m33s  (753s)
@@ -1122,18 +1122,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p008: cells=266, transcripts=29243
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.err
 
 ============================================================
   xsplit_GSM7990533_x16_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x16  (mode=data_only)
   Job ID       : 1378202
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x16_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x16_data_only
 
   Timing
     Wall clock : 10m09s  (609s)
@@ -1203,18 +1203,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p016: cells=147, transcripts=17477
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.err
 
 ============================================================
   xsplit_GSM7990533_x16_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990533_x16  (mode=with_images)
   Job ID       : 1378203
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x16_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990533_x16_with_images
 
   Timing
     Wall clock : 12m10s  (730s)
@@ -1284,18 +1284,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r02_p016: cells=147, transcripts=17477
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.err
 
 ============================================================
   xsplit_GSM7990548_x1_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x1  (mode=data_only)
   Job ID       : 1378204
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x1_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x1_data_only
 
   Timing
     Wall clock : 10m01s  (602s)
@@ -1337,18 +1337,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p001: cells=3830, transcripts=1030397
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.err
 
 ============================================================
   xsplit_GSM7990548_x1_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x1  (mode=with_images)
   Job ID       : 1378205
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x1.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x1_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x1_with_images
 
   Timing
     Wall clock : 22m02s  (1322s)
@@ -1390,18 +1390,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p001: cells=3830, transcripts=1030397
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.err
 
 ============================================================
   xsplit_GSM7990548_x2_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x2  (mode=data_only)
   Job ID       : 1378206
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x2_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x2_data_only
 
   Timing
     Wall clock : 27m11s  (1632s)
@@ -1447,18 +1447,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p002: cells=1875, transcripts=506257
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.err
 
 ============================================================
   xsplit_GSM7990548_x2_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x2  (mode=with_images)
   Job ID       : 1378207
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x2.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x2_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x2_with_images
 
   Timing
     Wall clock : 34m17s  (2058s)
@@ -1504,18 +1504,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p002: cells=1875, transcripts=506257
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.err
 
 ============================================================
   xsplit_GSM7990548_x4_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x4  (mode=data_only)
   Job ID       : 1378208
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x4_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x4_data_only
 
   Timing
     Wall clock : 47m44s  (2864s)
@@ -1569,18 +1569,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p004: cells=818, transcripts=256735
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.err
 
 ============================================================
   xsplit_GSM7990548_x4_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x4  (mode=with_images)
   Job ID       : 1378209
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x4.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x4_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x4_with_images
 
   Timing
     Wall clock : 55m39s  (3340s)
@@ -1634,18 +1634,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p004: cells=818, transcripts=256735
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.err
 
 ============================================================
   xsplit_GSM7990548_x8_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSM7990548_x8  (mode=data_only)
   Job ID       : 1378210
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x8_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x8_data_only
 
   Timing
     Wall clock : 1h00m37s  (3637s)
@@ -1679,18 +1679,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology_mip.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.err
 
 ============================================================
   xsplit_GSM7990548_x8_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x8  (mode=with_images)
   Job ID       : 1378212
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x8.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x8_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x8_with_images
 
   Timing
     Wall clock : 1h35m39s  (5739s)
@@ -1760,18 +1760,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p008: cells=423, transcripts=120887
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.err
 
 ============================================================
   xsplit_GSM7990548_x16_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSM7990548_x16  (mode=data_only)
   Job ID       : 1378214
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x16_data_only
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x16_data_only
 
   Timing
     Wall clock : 1h00m01s  (3601s)
@@ -1805,18 +1805,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology_mip.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.err
 
 ============================================================
   xsplit_GSM7990548_x16_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSM7990548_x16  (mode=with_images)
   Job ID       : 1378217
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x16.csv
-  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x16_with_images
+  H&E source   : /scratch/user/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSM7990548_x16_with_images
 
   Timing
     Wall clock : 1h24m01s  (5041s)
@@ -1918,18 +1918,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r04_p016: cells=197, transcripts=66370
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.err
 
 ============================================================
   xsplit_GSE297945-A1_x1_data_only  [SUCCESS]
 ============================================================
   Dataset      : GSE297945-A1_x1  (mode=data_only)
   Job ID       : 1378218
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x1.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x1_data_only
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x1_data_only
 
   Timing
     Wall clock : 5h07m39s  (18459s)
@@ -2039,18 +2039,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r14_p001: cells=71523, transcripts=6759848
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.err
 
 ============================================================
   xsplit_GSE297945-A1_x1_with_images  [SUCCESS]
 ============================================================
   Dataset      : GSE297945-A1_x1  (mode=with_images)
   Job ID       : 1378219
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x1.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x1_with_images
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x1_with_images
 
   Timing
     Wall clock : 6h29m41s  (23381s)
@@ -2160,18 +2160,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       r14_p001: cells=71523, transcripts=6759848
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.err
 
 ============================================================
   xsplit_GSE297945-A1_x2_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x2  (mode=data_only)
   Job ID       : 1378220
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x2.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x2_data_only
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x2_data_only
 
   Timing
     Wall clock : 6h00m04s  (21604s)
@@ -2263,18 +2263,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.err
 
 ============================================================
   xsplit_GSE297945-A1_x2_with_images  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x2  (mode=with_images)
   Job ID       : 1378221
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x2.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x2_with_images
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x2_with_images
 
   Timing
     Wall clock : 8h00m19s  (28819s)
@@ -2366,18 +2366,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.err
 
 ============================================================
   xsplit_GSE297945-A1_x4_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x4  (mode=data_only)
   Job ID       : 1378222
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x4.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x4_data_only
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x4_data_only
 
   Timing
     Wall clock : 6h00m29s  (21629s)
@@ -2469,18 +2469,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.err
 
 ============================================================
   xsplit_GSE297945-A1_x4_with_images  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x4  (mode=with_images)
   Job ID       : 1378223
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x4.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x4_with_images
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x4_with_images
 
   Timing
     Wall clock : 8h00m01s  (28801s)
@@ -2572,18 +2572,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.err
 
 ============================================================
   xsplit_GSE297945-A1_x8_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x8  (mode=data_only)
   Job ID       : 1378224
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x8.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x8_data_only
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x8_data_only
 
   Timing
     Wall clock : 6h00m21s  (21621s)
@@ -2675,18 +2675,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.err
 
 ============================================================
   xsplit_GSE297945-A1_x8_with_images  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x8  (mode=with_images)
   Job ID       : 1378225
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x8.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x8_with_images
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x8_with_images
 
   Timing
     Wall clock : 8h00m06s  (28806s)
@@ -2778,18 +2778,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.err
 
 ============================================================
   xsplit_GSE297945-A1_x16_data_only  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x16  (mode=data_only)
   Job ID       : 1378226
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x16.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x16_data_only
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x16_data_only
 
   Timing
     Wall clock : 6h00m22s  (21622s)
@@ -2881,18 +2881,18 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.err
 
 ============================================================
   xsplit_GSE297945-A1_x16_with_images  [TIMEOUT]
 ============================================================
   Dataset      : GSE297945-A1_x16  (mode=with_images)
   Job ID       : 1378227
-  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  Input dir    : /scratch/user/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
   LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x16.csv
   H&E source   : -
-  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x16_with_images
+  Output dir   : /scratch/user/xenium_splitter/data_out3/GSE297945-A1_x16_with_images
 
   Timing
     Wall clock : 8h00m06s  (28806s)
@@ -2984,5 +2984,5 @@ GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4      
       morphology.ome.tif=JPEG2000
 
   Logs
-    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.out
-    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.err
+    stdout     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.out
+    stderr     : /tmp/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.err
