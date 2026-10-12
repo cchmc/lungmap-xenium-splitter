@@ -21,13 +21,78 @@ cropping to each region.
 pip install -e .
 ```
 
+Zarr, HDF5, and Parquet support are included in the default installation.
+
 Optional extras:
 
 ```bash
-pip install -e ".[parquet,svs,hdf5,zarr,dev]"
+pip install -e ".[svs,dev]"
 ```
 
+The `svs` extra adds SVS image support and requires native OpenSlide libraries.
+The `dev` extra adds testing and linting tools. The legacy `parquet`, `hdf5`, and
+`zarr` extras remain accepted for compatibility but are no longer necessary.
+
+## Versioning And Releases
+
+Package versions are derived from Git tags using `setuptools-scm`; no version
+number is maintained in the source. A clean checkout tagged `v0.1.0` builds
+version `0.1.0`. Commits after a tag and dirty working trees produce development
+versions instead of reusing the release version.
+
+After committing and testing a release, tag it and build the distributions:
+
+```bash
+git tag -a v0.1.0 -m "Release 0.1.0"
+git push origin v0.1.0
+python -m pip install --upgrade build twine
+python -m build
+python -m twine check dist/*
+```
+
+Choose a new version tag for each release and build from that tagged commit in a
+clean working tree. Use an empty build output directory to avoid mixing older
+artifacts with the new release. PyPI does not allow replacing uploaded files.
+
+GitHub Actions builds must fetch the full history and tags by setting
+`fetch-depth: 0` on `actions/checkout`. Install from a Git clone or a generated
+source distribution, not a GitHub source ZIP: a source distribution retains the
+resolved version and can build without Git metadata.
+
+`xenium_splitter.__version__` reads the installed distribution's version. Reinstall
+an editable installation after changing tags or commits to refresh that metadata.
+
 ## CLI Usage
+
+### RAM Estimate
+
+```bash
+xenium-splitter estimate-ram \
+  --input-dir /path/to/xenium_output \
+  --lasso-file regions.csv \
+  --output-dir /path/to/output
+```
+
+Estimates peak RAM using the on-disk archive sizes directly inside `--input-dir`:
+
+```text
+PeakRAM(GB) = 2.5 + 0.010 * TranscriptZarrMB + 0.007 * CellZarrMB
+```
+
+`TranscriptZarrMB` is the size of `transcripts.zarr.zip`; `CellZarrMB` is the size
+of `cells.zarr.zip`. Both files are required. MB means 1,000,000 bytes, not MiB.
+The estimator reads file sizes only; it does not load or extract the archives.
+It accepts all the same options, defaults, and required paths as `split`; replace
+`split` with `estimate-ram` in a split invocation. This includes repeated
+`--include-glob` options, image/analysis switches, and `-v`/`--verbose`.
+`--images-only` and `--skip-images` remain mutually exclusive.
+Only the two archive sizes affect this equation: processing options, LASSO
+geometry, H&E, and the output path are not modeled. No output files or directories
+are created.
+
+This is an approximate peak estimate, not a guaranteed memory limit or a scheduler
+allocation recommendation. Image layout, region geometry, and processing options
+are not modeled; allow additional headroom when requesting RAM.
 
 ### Options
 
