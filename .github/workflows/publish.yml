@@ -1,0 +1,129 @@
+name: Publish To PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test And Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check Out Release Tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Release Tag
+        run: |
+          python -m pip install packaging
+          python - <<'PY'
+          import os
+          from packaging.version import Version
+
+          version = Version(os.environ["RELEASE_TAG"].removeprefix("v"))
+          if version.local is not None or version.is_devrelease:
+              raise SystemExit("Release tags must not contain local or development versions")
+          print(f"Release version: {version}")
+          PY
+
+      - name: Install Build And Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" build twine
+
+      - name: Run Tests
+        run: python -m pytest
+
+      - name: Build Distributions
+        run: python -m build
+
+      - name: Check Distribution Metadata And Versions
+        run: |
+          python -m twine check dist/*
+          python - <<'PY'
+          import os
+          import tarfile
+          import zipfile
+          from email.parser import BytesParser
+          from pathlib import Path
+          from packaging.version import Version
+
+          expected = Version(os.environ["RELEASE_TAG"].removeprefix("v"))
+          wheels = list(Path("dist").glob("*.whl"))
+          sources = list(Path("dist").glob("*.tar.gz"))
+          if len(wheels) != 1 or len(sources) != 1:
+              raise SystemExit("Expected exactly one wheel and one source distribution")
+          with zipfile.ZipFile(wheels[0]) as archive:
+              metadata_path = next(
+                  name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+              )
+              wheel_metadata = BytesParser().parsebytes(archive.read(metadata_path))
+          with tarfile.open(sources[0]) as archive:
+              metadata_member = next(
+                  member for member in archive.getmembers()
+                  if member.name.count("/") == 1 and member.name.endswith("/PKG-INFO")
+              )
+              source_metadata = BytesParser().parsebytes(
+                  archive.extractfile(metadata_member).read()
+              )
+          for metadata in (wheel_metadata, source_metadata):
+              actual = Version(metadata["Version"])
+              if actual != expected:
+                  raise SystemExit(f"Tag version {expected} does not match build version {actual}")
+          print(f"Both distributions match release tag: {expected}")
+          PY
+
+      - name: Smoke Test Installed Wheel
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install "$GITHUB_WORKSPACE"/dist/*.whl
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip check
+          "$RUNNER_TEMP/wheel-smoke/bin/xenium-splitter" --help
+          "$RUNNER_TEMP/wheel-smoke/bin/xenium-recalc-diffexp" --help
+          "$RUNNER_TEMP/wheel-smoke/bin/xenium-validate-transcripts-zarr" --help
+
+      - name: Upload Release Distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish To PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/xenium-splitter/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Release Distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+
+      - name: Publish With Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
