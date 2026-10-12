@@ -33,34 +33,7 @@ The `svs` extra adds SVS image support and requires native OpenSlide libraries.
 The `dev` extra adds testing and linting tools. The legacy `parquet`, `hdf5`, and
 `zarr` extras remain accepted for compatibility but are no longer necessary.
 
-## Versioning And Releases
-
-Package versions are derived from Git tags using `setuptools-scm`; no version
-number is maintained in the source. A clean checkout tagged `v0.1.0` builds
-version `0.1.0`. Commits after a tag and dirty working trees produce development
-versions instead of reusing the release version.
-
-After committing and testing a release, tag it and build the distributions:
-
-```bash
-git tag -a v0.1.0 -m "Release 0.1.0"
-git push origin v0.1.0
-python -m pip install --upgrade build twine
-python -m build
-python -m twine check dist/*
-```
-
-Choose a new version tag for each release and build from that tagged commit in a
-clean working tree. Use an empty build output directory to avoid mixing older
-artifacts with the new release. PyPI does not allow replacing uploaded files.
-
-GitHub Actions builds must fetch the full history and tags by setting
-`fetch-depth: 0` on `actions/checkout`. Install from a Git clone or a generated
-source distribution, not a GitHub source ZIP: a source distribution retains the
-resolved version and can build without Git metadata.
-
-`xenium_splitter.__version__` reads the installed distribution's version. Reinstall
-an editable installation after changing tags or commits to refresh that metadata.
+For versioning and publishing instructions, see [release.md](release.md).
 
 ## CLI Usage
 
