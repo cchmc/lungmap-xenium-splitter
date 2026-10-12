@@ -467,6 +467,8 @@ def _image_compression(path: Path) -> str | None:
 
 def _input_image_compressions(input_dir: str, he_image: str | None) -> list[str]:
     """Return compression descriptions for recognized images under input_dir."""
+    if not input_dir:
+        return []
     root = Path(input_dir)
     if not root.is_dir():
         return []
@@ -485,6 +487,8 @@ def _input_image_compressions(input_dir: str, he_image: str | None) -> list[str]
 
 def _input_file_inventory(input_dir: str) -> list[dict]:
     """Collect source paths and byte sizes, annotating recognized image files."""
+    if not input_dir:
+        return []
     root = Path(input_dir)
     if not root.is_dir():
         return []
