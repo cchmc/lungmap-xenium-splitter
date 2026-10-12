@@ -1,36 +1,70 @@
+Loaded manifest: /users/for8es/xenium_splitter/benchmark_mem_opt2/benchmark_manifest.csv
+Processing 40 run record(s)...
+
 xenium-splitter Benchmark Report
-Generated : 2026-07-31 14:23:07
-Log dir   : /hpc/logs/xenium_benchmark
+Generated : 2026-10-06 07:13:48
+Log dir   : /users/for8es/xenium_splitter/benchmark_mem_opt2
 
-Processing 6 run record(s)...
-
--------------------------------------------------------------------------------------------------------------------------------------------------------
-Name                Mode        Status   Wall     CPU      PeakRAM(GB) AvgRAM(GB) Regions Cells    Transcripts  Files ok Files failH&E(GB)  Output(GB) 
--------------------------------------------------------------------------------------------------------------------------------------------------------
-GSM7990532_full     data_only   SUCCESS  12m15s   11m02s   31.6        22.1       5       45K      4.5M         142      1         -        8.3        
-GSM7990532_full     with_images TIMEOUT  6h00m00s -        -           -          -       -        -            -        -         2.2      -          
-GSM7990532_small    data_only   SUCCESS  2m30s    2m15s    12.4        8.2        3       5K       500K         87       0         -        1.2        
-GSM7990532_small    with_images SUCCESS  8m20s    6m45s    27.8        18.3       3       5K       500K         90       0         2.2      4.8        
-large_slide_A       data_only   SUCCESS  45m30s   43m12s   57.4        40.8       8       320K     52.0M        198      0         -        24.7       
-large_slide_A       with_images MEMLIMIT 1h23m20s -        118.4       -          -       -        -            -        -         6.8      -          
--------------------------------------------------------------------------------------------------------------------------------------------------------
-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Name                Mode        Status   Wall     CPU      PeakRAM(GB) AvgRAM(GB) Regions Cells    Cells written Transcripts  H&E(GB)  H&E format  H&E WxH(px)     Morph(GB)  Morph WxH(px)   Morph planes 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+GSE297945-A1_x1     data_only   SUCCESS  5h07m39s 5h06m27s 31.7        10.9       14      968K     722K          114.0M       -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x1     with_images SUCCESS  6h29m41s 6h36m39s 31.6        11.9       14      968K     722K          114.0M       -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x16    data_only   TIMEOUT  6h00m22s 5h59m35s 1.1         0.9        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x16    with_images TIMEOUT  8h00m06s 7h59m10s 1.1         0.9        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x2     data_only   TIMEOUT  6h00m04s 5h58m51s 6.4         1.4        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x2     with_images TIMEOUT  8h00m19s 8h00m36s 30.9        7.5        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x4     data_only   TIMEOUT  6h00m29s 5h59m36s 1.1         1.1        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x4     with_images TIMEOUT  8h00m01s 8h11m00s 25.4        2.0        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x8     data_only   TIMEOUT  6h00m21s 5h59m35s 1.1         1.0        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSE297945-A1_x8     with_images TIMEOUT  8h00m06s 7h59m08s 1.2         1.1        -       -        -             -            -        -           -               18.9       54031x68047     28           
+GSM7990532_x1       data_only   SUCCESS  17m40s   17m18s   5.9         3.0        4       114K     74K           14.4M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x1       with_images SUCCESS  34m13s   34m17s   5.9         3.4        4       114K     74K           14.4M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x16      data_only   TIMEOUT  1h00m20s 1h04m35s 5.7         1.6        -       -        -             -            2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x16      with_images TIMEOUT  2h00m18s 2h08m02s 5.6         1.9        -       -        -             -            2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x2       data_only   SUCCESS  25m12s   25m40s   5.9         2.4        8       144K     74K           14.5M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x2       with_images SUCCESS  33m27s   34m05s   5.9         2.9        8       144K     74K           14.5M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x4       data_only   SUCCESS  18m31s   19m44s   5.9         2.2        16      197K     75K           14.5M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x4       with_images SUCCESS  42m13s   43m02s   5.9         2.5        16      197K     75K           14.5M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x8       data_only   SUCCESS  49m34s   47m43s   5.9         1.8        32      299K     76K           14.7M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990532_x8       with_images SUCCESS  1h21m24s 1h20m34s 5.9         2.1        32      299K     76K           14.7M        2.1      TIFF        25630x28964     2.8        25630x28964     16           
+GSM7990533_x1       data_only   SUCCESS  1m10s    1m09s    2.4         0.5        2       9K       3K            296K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x1       with_images SUCCESS  2m27s    2m30s    2.4         0.5        2       9K       3K            296K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x16      data_only   SUCCESS  10m09s   10m48s   2.4         0.4        32      10K      4K            351K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x16      with_images SUCCESS  12m10s   12m41s   2.4         0.5        32      10K      4K            351K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x2       data_only   SUCCESS  3m14s    3m17s    2.4         0.6        4       9K       3K            301K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x2       with_images SUCCESS  2m01s    2m04s    2.4         0.4        4       9K       3K            301K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x4       data_only   SUCCESS  2m35s    2m46s    2.4         0.3        8       9K       3K            309K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x4       with_images SUCCESS  3m26s    3m35s    2.4         0.4        8       9K       3K            309K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x8       data_only   SUCCESS  4m49s    5m16s    2.4         0.3        16      9K       3K            322K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990533_x8       with_images SUCCESS  12m33s   13m33s   2.4         0.4        16      9K       3K            322K         0.8      TIFF        17145x16597     1.4        17145x16597     11           
+GSM7990548_x1       data_only   SUCCESS  10m01s   10m10s   7.4         2.3        4       59K      35K           6.6M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x1       with_images SUCCESS  22m02s   23m29s   7.4         2.6        4       59K      35K           6.6M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x16      data_only   TIMEOUT  1h00m01s 59m30s   0.4         0.4        -       -        -             -            2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x16      with_images SUCCESS  1h24m01s 1h27m03s 7.5         1.6        64      361K     41K           7.2M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x2       data_only   SUCCESS  27m11s   28m53s   7.5         1.5        8       81K      36K           6.7M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x2       with_images SUCCESS  34m17s   36m19s   7.5         1.9        8       81K      36K           6.7M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x4       data_only   SUCCESS  47m44s   51m35s   7.5         1.5        16      123K     37K           6.8M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x4       with_images SUCCESS  55m39s   1h00m02s 7.5         1.8        16      123K     37K           6.8M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x8       data_only   TIMEOUT  1h00m37s 59m20s   4.0         0.5        -       -        -             -            2.6      TIFF        28462x33048     4.9        28462x33048     17           
+GSM7990548_x8       with_images SUCCESS  1h35m39s 1h44m35s 7.5         1.4        32      204K     38K           6.9M         2.6      TIFF        28462x33048     4.9        28462x33048     17           
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ============================================================
   STATISTICS
 ============================================================
-  Total runs     : 6
-  Successful     : 4
+  Total runs     : 40
+  Successful     : 28
   Failed         : 0
-  Other (running/timeout/memlimit/missing): 2
+  Other (running/timeout/memlimit/missing): 12
 
-  Mode: data_only (3 successful run(s))
-    Wall time  : min=2m30s  max=45m30s  avg=20m05s
-    Peak RAM   : min=12.4 GB  max=57.4 GB  avg=33.8 GB
+  Mode: data_only (13 successful run(s))
+    Wall time  : min=1m10s  max=5h07m39s  avg=40m25s
+    Peak RAM   : min=2.4 GB  max=31.7 GB  avg=6.9 GB
 
-  Mode: with_images (1 successful run(s))
-    Wall time  : min=8m20s  max=8m20s  avg=8m20s
-    Peak RAM   : min=27.8 GB  max=27.8 GB  avg=27.8 GB
+  Mode: with_images (15 successful run(s))
+    Wall time  : min=2m01s  max=6h29m41s  avg=1h00m21s
+    Peak RAM   : min=2.4 GB  max=31.6 GB  avg=7.0 GB
 
 
 ============================================================
@@ -38,177 +72,534 @@ large_slide_A       with_images MEMLIMIT 1h23m20s -        118.4       -        
 ============================================================
 
 ============================================================
-  xsplit_GSM7990532_full_data_only  [SUCCESS]
+  xsplit_GSM7990532_x1_data_only  [SUCCESS]
 ============================================================
-  Dataset      : GSM7990532_full  (mode=data_only)
-  Job ID       : 1482735
-  Output dir   : /hpc/benchmark_outputs/GSM7990532_full_data_only
+  Dataset      : GSM7990532_x1  (mode=data_only)
+  Job ID       : 1378184
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x1_data_only
 
   Timing
-    Wall clock : 12m15s  (735s)
-    CPU time   : 11m02s  (662s)
-    Splitter   : 12m12s (internal timer)
+    Wall clock : 17m40s  (1061s)
+    CPU time   : 17m18s  (1038s)
+    Splitter   : 17m35s (internal timer)
 
   Memory
-    Peak RAM   : 31.6 GB  (requested 32 GB)
-    Avg  RAM   : 22.1 GB
+    Peak RAM   : 5.9 GB  (requested 8 GB)
+    Avg  RAM   : 3.0 GB
 
   xenium-splitter
-    Regions    : 5
-    Cells      : 45K
-    Transcripts: 4.5M
-    Files ok   : 142  skipped=18  failed=1  (discovered=161)
-    Slowest    : transcripts.zarr.zip (312.7s)
+    Regions    : 4
+    Cells      : 114K
+    Cells written in regions: 74K
+    Transcripts: 14.4M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (249.2s)
 
   File sizes
-    H&E image  : - GB
-    Morphology : 0.9 GB
-    Output dir : 8.3 GB
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=4560, transcripts=1018276
+      r02_p001: cells=23017, transcripts=3892647
+      r03_p001: cells=3526, transcripts=773863
+      r04_p001: cells=42552, transcripts=8715472
 
   Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_data_only.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_data_only.err
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_data_only.err
 
 ============================================================
-  xsplit_GSM7990532_full_with_images  [TIMEOUT]
+  xsplit_GSM7990532_x1_with_images  [SUCCESS]
 ============================================================
-  Dataset      : GSM7990532_full  (mode=with_images)
-  Job ID       : 1482736
-  Output dir   : /hpc/benchmark_outputs/GSM7990532_full_with_images
+  Dataset      : GSM7990532_x1  (mode=with_images)
+  Job ID       : 1378185
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x1_with_images
 
   Timing
-    Wall clock : 6h00m00s  (21600s)
-    CPU time   : -
+    Wall clock : 34m13s  (2053s)
+    CPU time   : 34m17s  (2057s)
+    Splitter   : 34m08s (internal timer)
 
   Memory
-    Peak RAM   : - GB  (requested 64 GB)
-    Avg  RAM   : - GB
+    Peak RAM   : 5.9 GB  (requested 16 GB)
+    Avg  RAM   : 3.4 GB
 
   xenium-splitter
-    Regions    : -
-    Cells      : -
-    Transcripts: -
-    Files ok   : -  skipped=-  failed=-  (discovered=-)
+    Regions    : 4
+    Cells      : 114K
+    Cells written in regions: 74K
+    Transcripts: 14.4M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (601.5s)
 
   File sizes
-    H&E image  : 2.2 GB
-    Morphology : - GB
-    Output dir : - GB
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=4560, transcripts=1018276
+      r02_p001: cells=23017, transcripts=3892647
+      r03_p001: cells=3526, transcripts=773863
+      r04_p001: cells=42552, transcripts=8715472
 
   Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_with_images.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_full_with_images.err
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x1_with_images.err
 
 ============================================================
-  xsplit_GSM7990532_small_data_only  [SUCCESS]
+  xsplit_GSM7990532_x2_data_only  [SUCCESS]
 ============================================================
-  Dataset      : GSM7990532_small  (mode=data_only)
-  Job ID       : 1482733
-  Output dir   : /hpc/benchmark_outputs/GSM7990532_small_data_only
+  Dataset      : GSM7990532_x2  (mode=data_only)
+  Job ID       : 1378186
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x2_data_only
 
   Timing
-    Wall clock : 2m30s  (150s)
-    CPU time   : 2m15s  (135s)
-    Splitter   : 2m28s (internal timer)
+    Wall clock : 25m12s  (1513s)
+    CPU time   : 25m40s  (1541s)
+    Splitter   : 25m07s (internal timer)
 
   Memory
-    Peak RAM   : 12.4 GB  (requested 16 GB)
-    Avg  RAM   : 8.2 GB
-
-  xenium-splitter
-    Regions    : 3
-    Cells      : 5K
-    Transcripts: 500K
-    Files ok   : 87  skipped=12  failed=0  (discovered=99)
-    Slowest    : transcripts.zarr.zip (45.3s)
-
-  File sizes
-    H&E image  : - GB
-    Morphology : 0.4 GB
-    Output dir : 1.2 GB
-
-  Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_data_only.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_data_only.err
-
-============================================================
-  xsplit_GSM7990532_small_with_images  [SUCCESS]
-============================================================
-  Dataset      : GSM7990532_small  (mode=with_images)
-  Job ID       : 1482734
-  Output dir   : /hpc/benchmark_outputs/GSM7990532_small_with_images
-
-  Timing
-    Wall clock : 8m20s  (500s)
-    CPU time   : 6m45s  (405s)
-    Splitter   : 8m17s (internal timer)
-
-  Memory
-    Peak RAM   : 27.8 GB  (requested 32 GB)
-    Avg  RAM   : 18.3 GB
-
-  xenium-splitter
-    Regions    : 3
-    Cells      : 5K
-    Transcripts: 500K
-    Files ok   : 90  skipped=9  failed=0  (discovered=99)
-    Slowest    : morphology.ome.tif (145.2s)
-
-  File sizes
-    H&E image  : 2.2 GB
-    Morphology : 0.4 GB
-    Output dir : 4.8 GB
-
-  Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_with_images.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_GSM7990532_small_with_images.err
-
-============================================================
-  xsplit_large_slide_A_data_only  [SUCCESS]
-============================================================
-  Dataset      : large_slide_A  (mode=data_only)
-  Job ID       : 1482737
-  Output dir   : /hpc/benchmark_outputs/large_slide_A_data_only
-
-  Timing
-    Wall clock : 45m30s  (2730s)
-    CPU time   : 43m12s  (2592s)
-    Splitter   : 45m26s (internal timer)
-
-  Memory
-    Peak RAM   : 57.4 GB  (requested 64 GB)
-    Avg  RAM   : 40.8 GB
+    Peak RAM   : 5.9 GB  (requested 8 GB)
+    Avg  RAM   : 2.4 GB
 
   xenium-splitter
     Regions    : 8
-    Cells      : 320K
-    Transcripts: 52.0M
-    Files ok   : 198  skipped=22  failed=0  (discovered=220)
-    Slowest    : transcripts.zarr.zip (1824.5s)
+    Cells      : 144K
+    Cells written in regions: 74K
+    Transcripts: 14.5M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (288.9s)
 
   File sizes
-    H&E image  : - GB
-    Morphology : 1.8 GB
-    Output dir : 24.7 GB
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=2668, transcripts=581234
+      r01_p002: cells=1955, transcripts=443248
+      r02_p001: cells=10613, transcripts=1828916
+      r02_p002: cells=12583, transcripts=2079182
+      r03_p001: cells=616, transcripts=139354
+      r03_p002: cells=2936, transcripts=637746
+      r04_p001: cells=22616, transcripts=4536515
+      r04_p002: cells=20208, transcripts=4208921
 
   Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_data_only.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_data_only.err
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_data_only.err
 
 ============================================================
-  xsplit_large_slide_A_with_images  [MEMLIMIT]
+  xsplit_GSM7990532_x2_with_images  [SUCCESS]
 ============================================================
-  Dataset      : large_slide_A  (mode=with_images)
-  Job ID       : 1482738
-  Output dir   : /hpc/benchmark_outputs/large_slide_A_with_images
+  Dataset      : GSM7990532_x2  (mode=with_images)
+  Job ID       : 1378187
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x2_with_images
 
   Timing
-    Wall clock : 1h23m20s  (5000s)
-    CPU time   : -
+    Wall clock : 33m27s  (2007s)
+    CPU time   : 34m05s  (2045s)
+    Splitter   : 33m19s (internal timer)
 
   Memory
-    Peak RAM   : 118.4 GB  (requested 128 GB)
-    Avg  RAM   : - GB
+    Peak RAM   : 5.9 GB  (requested 16 GB)
+    Avg  RAM   : 2.9 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 144K
+    Cells written in regions: 74K
+    Transcripts: 14.5M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (497.6s)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=2668, transcripts=581234
+      r01_p002: cells=1955, transcripts=443248
+      r02_p001: cells=10613, transcripts=1828916
+      r02_p002: cells=12583, transcripts=2079182
+      r03_p001: cells=616, transcripts=139354
+      r03_p002: cells=2936, transcripts=637746
+      r04_p001: cells=22616, transcripts=4536515
+      r04_p002: cells=20208, transcripts=4208921
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x2_with_images.err
+
+============================================================
+  xsplit_GSM7990532_x4_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_x4  (mode=data_only)
+  Job ID       : 1378188
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x4_data_only
+
+  Timing
+    Wall clock : 18m31s  (1111s)
+    CPU time   : 19m44s  (1184s)
+    Splitter   : 18m27s (internal timer)
+
+  Memory
+    Peak RAM   : 5.9 GB  (requested 8 GB)
+    Avg  RAM   : 2.2 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 197K
+    Cells written in regions: 75K
+    Transcripts: 14.5M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (197.4s)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=1217, transcripts=263183
+      r01_p002: cells=1520, transcripts=325964
+      r01_p003: cells=1321, transcripts=289725
+      r01_p004: cells=669, transcripts=159869
+      r02_p001: cells=2477, transcripts=533935
+      r02_p002: cells=8255, transcripts=1308322
+      r02_p003: cells=8207, transcripts=1229289
+      r02_p004: cells=4489, transcripts=859532
+      r03_p001: cells=2, transcripts=388
+      r03_p002: cells=614, transcripts=138966
+      r03_p003: cells=1712, transcripts=387899
+      r03_p004: cells=1264, transcripts=256594
+      r04_p001: cells=8792, transcripts=1706827
+      r04_p002: cells=13999, transcripts=2846780
+      r04_p003: cells=13008, transcripts=2774386
+      r04_p004: cells=7378, transcripts=1457346
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_data_only.err
+
+============================================================
+  xsplit_GSM7990532_x4_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_x4  (mode=with_images)
+  Job ID       : 1378189
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x4_with_images
+
+  Timing
+    Wall clock : 42m13s  (2534s)
+    CPU time   : 43m02s  (2583s)
+    Splitter   : 42m09s (internal timer)
+
+  Memory
+    Peak RAM   : 5.9 GB  (requested 16 GB)
+    Avg  RAM   : 2.5 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 197K
+    Cells written in regions: 75K
+    Transcripts: 14.5M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (545.4s)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=1217, transcripts=263183
+      r01_p002: cells=1520, transcripts=325964
+      r01_p003: cells=1321, transcripts=289725
+      r01_p004: cells=669, transcripts=159869
+      r02_p001: cells=2477, transcripts=533935
+      r02_p002: cells=8255, transcripts=1308322
+      r02_p003: cells=8207, transcripts=1229289
+      r02_p004: cells=4489, transcripts=859532
+      r03_p001: cells=2, transcripts=388
+      r03_p002: cells=614, transcripts=138966
+      r03_p003: cells=1712, transcripts=387899
+      r03_p004: cells=1264, transcripts=256594
+      r04_p001: cells=8792, transcripts=1706827
+      r04_p002: cells=13999, transcripts=2846780
+      r04_p003: cells=13008, transcripts=2774386
+      r04_p004: cells=7378, transcripts=1457346
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x4_with_images.err
+
+============================================================
+  xsplit_GSM7990532_x8_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_x8  (mode=data_only)
+  Job ID       : 1378190
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x8_data_only
+
+  Timing
+    Wall clock : 49m34s  (2975s)
+    CPU time   : 47m43s  (2863s)
+    Splitter   : 49m31s (internal timer)
+
+  Memory
+    Peak RAM   : 5.9 GB  (requested 8 GB)
+    Avg  RAM   : 1.8 GB
+
+  xenium-splitter
+    Regions    : 32
+    Cells      : 299K
+    Cells written in regions: 76K
+    Transcripts: 14.7M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (546.0s)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=535, transcripts=115057
+      r01_p002: cells=753, transcripts=155390
+      r01_p003: cells=720, transcripts=157093
+      r01_p004: cells=870, transcripts=176359
+      r01_p005: cells=757, transcripts=160725
+      r01_p006: cells=623, transcripts=135917
+      r01_p007: cells=437, transcripts=108714
+      r01_p008: cells=256, transcripts=53517
+      r02_p001: cells=615, transcripts=140129
+      r02_p002: cells=1909, transcripts=400983
+      r02_p003: cells=3962, transcripts=663361
+      r02_p004: cells=4467, transcripts=661521
+      r02_p005: cells=4203, transcripts=642700
+      r02_p006: cells=4145, transcripts=600234
+      r02_p007: cells=3357, transcripts=627889
+      r02_p008: cells=1202, transcripts=240819
+      r03_p001: cells=0, transcripts=0
+      r03_p002: cells=2, transcripts=388
+      r03_p003: cells=95, transcripts=29986
+      r03_p004: cells=533, transcripts=112405
+      r03_p005: cells=791, transcripts=165732
+      r03_p006: cells=962, transcripts=227959
+      r03_p007: cells=705, transcripts=142913
+      r03_p008: cells=566, transcripts=114745
+      r04_p001: cells=2611, transcripts=590925
+      r04_p002: cells=6308, transcripts=1132362
+      r04_p003: cells=7105, transcripts=1393569
+      r04_p004: cells=7163, transcripts=1480631
+      r04_p005: cells=6823, transcripts=1399994
+      r04_p006: cells=6442, transcripts=1404650
+      r04_p007: cells=5348, transcripts=1012139
+      r04_p008: cells=2199, transcripts=462479
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_data_only.err
+
+============================================================
+  xsplit_GSM7990532_x8_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990532_x8  (mode=with_images)
+  Job ID       : 1378191
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x8_with_images
+
+  Timing
+    Wall clock : 1h21m24s  (4884s)
+    CPU time   : 1h20m34s  (4835s)
+    Splitter   : 1h21m21s (internal timer)
+
+  Memory
+    Peak RAM   : 5.9 GB  (requested 16 GB)
+    Avg  RAM   : 2.1 GB
+
+  xenium-splitter
+    Regions    : 32
+    Cells      : 299K
+    Cells written in regions: 76K
+    Transcripts: 14.7M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (826.8s)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=535, transcripts=115057
+      r01_p002: cells=753, transcripts=155390
+      r01_p003: cells=720, transcripts=157093
+      r01_p004: cells=870, transcripts=176359
+      r01_p005: cells=757, transcripts=160725
+      r01_p006: cells=623, transcripts=135917
+      r01_p007: cells=437, transcripts=108714
+      r01_p008: cells=256, transcripts=53517
+      r02_p001: cells=615, transcripts=140129
+      r02_p002: cells=1909, transcripts=400983
+      r02_p003: cells=3962, transcripts=663361
+      r02_p004: cells=4467, transcripts=661521
+      r02_p005: cells=4203, transcripts=642700
+      r02_p006: cells=4145, transcripts=600234
+      r02_p007: cells=3357, transcripts=627889
+      r02_p008: cells=1202, transcripts=240819
+      r03_p001: cells=0, transcripts=0
+      r03_p002: cells=2, transcripts=388
+      r03_p003: cells=95, transcripts=29986
+      r03_p004: cells=533, transcripts=112405
+      r03_p005: cells=791, transcripts=165732
+      r03_p006: cells=962, transcripts=227959
+      r03_p007: cells=705, transcripts=142913
+      r03_p008: cells=566, transcripts=114745
+      r04_p001: cells=2611, transcripts=590925
+      r04_p002: cells=6308, transcripts=1132362
+      r04_p003: cells=7105, transcripts=1393569
+      r04_p004: cells=7163, transcripts=1480631
+      r04_p005: cells=6823, transcripts=1399994
+      r04_p006: cells=6442, transcripts=1404650
+      r04_p007: cells=5348, transcripts=1012139
+      r04_p008: cells=2199, transcripts=462479
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x8_with_images.err
+
+============================================================
+  xsplit_GSM7990532_x16_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSM7990532_x16  (mode=data_only)
+  Job ID       : 1378192
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x16_data_only
+
+  Timing
+    Wall clock : 1h00m20s  (3620s)
+    CPU time   : 1h04m35s  (3875s)
+
+  Memory
+    Peak RAM   : 5.7 GB  (requested 8 GB)
+    Avg  RAM   : 1.6 GB
 
   xenium-splitter
     Regions    : -
@@ -217,10 +608,2381 @@ large_slide_A       with_images MEMLIMIT 1h23m20s -        118.4       -        
     Files ok   : -  skipped=-  failed=-  (discovered=-)
 
   File sizes
-    H&E image  : 6.8 GB
-    Morphology : - GB
-    Output dir : - GB
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
 
   Logs
-    stdout     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_with_images.out
-    stderr     : /hpc/logs/xenium_benchmark/xsplit_large_slide_A_with_images.err
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_data_only.err
+
+============================================================
+  xsplit_GSM7990532_x16_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSM7990532_x16  (mode=with_images)
+  Job ID       : 1378193
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_output-XETG00048__0003392__THD0008__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990532_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990532/GSM7990532_THD0008_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990532_x16_with_images
+
+  Timing
+    Wall clock : 2h00m18s  (7218s)
+    CPU time   : 2h08m02s  (7682s)
+
+  Memory
+    Peak RAM   : 5.6 GB  (requested 16 GB)
+    Avg  RAM   : 1.9 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : 2.1 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 25630 x 28964 px
+    Input dir  : 4.7 GB
+    LASSO file : 0.0 GB
+    Morphology file: 2.8 GB
+    Morphology size: 25630 x 28964 px
+    Morphology planes: 16
+    Morphology family: 3.4 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990532_x16_with_images.err
+
+============================================================
+  xsplit_GSM7990533_x1_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x1  (mode=data_only)
+  Job ID       : 1378194
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x1_data_only
+
+  Timing
+    Wall clock : 1m10s  (71s)
+    CPU time   : 1m09s  (70s)
+    Splitter   : 1m07s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.5 GB
+
+  xenium-splitter
+    Regions    : 2
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 296K
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (9.3s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=762, transcripts=80948
+      r02_p001: cells=2096, transcripts=215252
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_data_only.err
+
+============================================================
+  xsplit_GSM7990533_x1_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x1  (mode=with_images)
+  Job ID       : 1378195
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x1_with_images
+
+  Timing
+    Wall clock : 2m27s  (148s)
+    CPU time   : 2m30s  (150s)
+    Splitter   : 2m24s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 16 GB)
+    Avg  RAM   : 0.5 GB
+
+  xenium-splitter
+    Regions    : 2
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 296K
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (24.5s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=762, transcripts=80948
+      r02_p001: cells=2096, transcripts=215252
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x1_with_images.err
+
+============================================================
+  xsplit_GSM7990533_x2_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x2  (mode=data_only)
+  Job ID       : 1378196
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x2_data_only
+
+  Timing
+    Wall clock : 3m14s  (195s)
+    CPU time   : 3m17s  (197s)
+    Splitter   : 3m06s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.6 GB
+
+  xenium-splitter
+    Regions    : 4
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 301K
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : cells.zarr.zip  (22.3s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=420, transcripts=43804
+      r01_p002: cells=371, transcripts=38450
+      r02_p001: cells=1015, transcripts=108492
+      r02_p002: cells=1133, transcripts=110082
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_data_only.err
+
+============================================================
+  xsplit_GSM7990533_x2_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x2  (mode=with_images)
+  Job ID       : 1378197
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x2_with_images
+
+  Timing
+    Wall clock : 2m01s  (121s)
+    CPU time   : 2m04s  (125s)
+    Splitter   : 1m59s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 16 GB)
+    Avg  RAM   : 0.4 GB
+
+  xenium-splitter
+    Regions    : 4
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 301K
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (26.1s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=420, transcripts=43804
+      r01_p002: cells=371, transcripts=38450
+      r02_p001: cells=1015, transcripts=108492
+      r02_p002: cells=1133, transcripts=110082
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x2_with_images.err
+
+============================================================
+  xsplit_GSM7990533_x4_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x4  (mode=data_only)
+  Job ID       : 1378198
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x4_data_only
+
+  Timing
+    Wall clock : 2m35s  (155s)
+    CPU time   : 2m46s  (166s)
+    Splitter   : 2m33s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.3 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 309K
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : cells.zarr.zip  (19.2s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=222, transcripts=21255
+      r01_p002: cells=215, transcripts=23846
+      r01_p003: cells=183, transcripts=17776
+      r01_p004: cells=213, transcripts=22019
+      r02_p001: cells=488, transcripts=66349
+      r02_p002: cells=566, transcripts=44595
+      r02_p003: cells=596, transcripts=55827
+      r02_p004: cells=588, transcripts=57748
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_data_only.err
+
+============================================================
+  xsplit_GSM7990533_x4_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x4  (mode=with_images)
+  Job ID       : 1378199
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x4_with_images
+
+  Timing
+    Wall clock : 3m26s  (206s)
+    CPU time   : 3m35s  (216s)
+    Splitter   : 3m24s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 16 GB)
+    Avg  RAM   : 0.4 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 309K
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (38.6s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=222, transcripts=21255
+      r01_p002: cells=215, transcripts=23846
+      r01_p003: cells=183, transcripts=17776
+      r01_p004: cells=213, transcripts=22019
+      r02_p001: cells=488, transcripts=66349
+      r02_p002: cells=566, transcripts=44595
+      r02_p003: cells=596, transcripts=55827
+      r02_p004: cells=588, transcripts=57748
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x4_with_images.err
+
+============================================================
+  xsplit_GSM7990533_x8_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x8  (mode=data_only)
+  Job ID       : 1378200
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x8_data_only
+
+  Timing
+    Wall clock : 4m49s  (290s)
+    CPU time   : 5m16s  (316s)
+    Splitter   : 4m47s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.3 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 322K
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : cells.zarr.zip  (35.3s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=123, transcripts=11936
+      r01_p002: cells=112, transcripts=10064
+      r01_p003: cells=114, transcripts=13514
+      r01_p004: cells=129, transcripts=11705
+      r01_p005: cells=120, transcripts=10549
+      r01_p006: cells=83, transcripts=8095
+      r01_p007: cells=108, transcripts=9316
+      r01_p008: cells=130, transcripts=14156
+      r02_p001: cells=245, transcripts=39349
+      r02_p002: cells=270, transcripts=29806
+      r02_p003: cells=328, transcripts=24579
+      r02_p004: cells=290, transcripts=22025
+      r02_p005: cells=356, transcripts=29198
+      r02_p006: cells=291, transcripts=28793
+      r02_p007: cells=358, transcripts=29964
+      r02_p008: cells=266, transcripts=29243
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_data_only.err
+
+============================================================
+  xsplit_GSM7990533_x8_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x8  (mode=with_images)
+  Job ID       : 1378201
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x8_with_images
+
+  Timing
+    Wall clock : 12m33s  (753s)
+    CPU time   : 13m33s  (814s)
+    Splitter   : 12m30s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 16 GB)
+    Avg  RAM   : 0.4 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 9K
+    Cells written in regions: 3K
+    Transcripts: 322K
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (70.9s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=123, transcripts=11936
+      r01_p002: cells=112, transcripts=10064
+      r01_p003: cells=114, transcripts=13514
+      r01_p004: cells=129, transcripts=11705
+      r01_p005: cells=120, transcripts=10549
+      r01_p006: cells=83, transcripts=8095
+      r01_p007: cells=108, transcripts=9316
+      r01_p008: cells=130, transcripts=14156
+      r02_p001: cells=245, transcripts=39349
+      r02_p002: cells=270, transcripts=29806
+      r02_p003: cells=328, transcripts=24579
+      r02_p004: cells=290, transcripts=22025
+      r02_p005: cells=356, transcripts=29198
+      r02_p006: cells=291, transcripts=28793
+      r02_p007: cells=358, transcripts=29964
+      r02_p008: cells=266, transcripts=29243
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x8_with_images.err
+
+============================================================
+  xsplit_GSM7990533_x16_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x16  (mode=data_only)
+  Job ID       : 1378202
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x16_data_only
+
+  Timing
+    Wall clock : 10m09s  (609s)
+    CPU time   : 10m48s  (648s)
+    Splitter   : 10m06s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.4 GB
+
+  xenium-splitter
+    Regions    : 32
+    Cells      : 10K
+    Cells written in regions: 4K
+    Transcripts: 351K
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : cells.zarr.zip  (84.9s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=87, transcripts=7927
+      r01_p002: cells=58, transcripts=5543
+      r01_p003: cells=59, transcripts=4855
+      r01_p004: cells=70, transcripts=6050
+      r01_p005: cells=64, transcripts=7454
+      r01_p006: cells=73, transcripts=8362
+      r01_p007: cells=79, transcripts=6407
+      r01_p008: cells=79, transcripts=6883
+      r01_p009: cells=80, transcripts=5951
+      r01_p010: cells=69, transcripts=5620
+      r01_p011: cells=53, transcripts=4544
+      r01_p012: cells=49, transcripts=4554
+      r01_p013: cells=65, transcripts=5268
+      r01_p014: cells=67, transcripts=4995
+      r01_p015: cells=80, transcripts=7721
+      r01_p016: cells=78, transcripts=8315
+      r02_p001: cells=124, transcripts=20954
+      r02_p002: cells=145, transcripts=21034
+      r02_p003: cells=162, transcripts=17159
+      r02_p004: cells=151, transcripts=14806
+      r02_p005: cells=184, transcripts=14581
+      r02_p006: cells=194, transcripts=12850
+      r02_p007: cells=151, transcripts=10034
+      r02_p008: cells=179, transcripts=14203
+      r02_p009: cells=200, transcripts=16072
+      r02_p010: cells=203, transcripts=14761
+      r02_p011: cells=170, transcripts=14587
+      r02_p012: cells=164, transcripts=17325
+      r02_p013: cells=208, transcripts=16826
+      r02_p014: cells=190, transcripts=14788
+      r02_p015: cells=142, transcripts=13138
+      r02_p016: cells=147, transcripts=17477
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_data_only.err
+
+============================================================
+  xsplit_GSM7990533_x16_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990533_x16  (mode=with_images)
+  Job ID       : 1378203
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_output-XETG00048__0003400__THD0011__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990533_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990533/GSM7990533_THD0011_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990533_x16_with_images
+
+  Timing
+    Wall clock : 12m10s  (730s)
+    CPU time   : 12m41s  (762s)
+    Splitter   : 12m07s (internal timer)
+
+  Memory
+    Peak RAM   : 2.4 GB  (requested 16 GB)
+    Avg  RAM   : 0.5 GB
+
+  xenium-splitter
+    Regions    : 32
+    Cells      : 10K
+    Cells written in regions: 4K
+    Transcripts: 351K
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (99.6s)
+
+  File sizes
+    H&E image  : 0.8 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 17145 x 16597 px
+    Input dir  : 2.0 GB
+    LASSO file : 0.0 GB
+    Morphology file: 1.4 GB
+    Morphology size: 17145 x 16597 px
+    Morphology planes: 11
+    Morphology family: 1.6 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=87, transcripts=7927
+      r01_p002: cells=58, transcripts=5543
+      r01_p003: cells=59, transcripts=4855
+      r01_p004: cells=70, transcripts=6050
+      r01_p005: cells=64, transcripts=7454
+      r01_p006: cells=73, transcripts=8362
+      r01_p007: cells=79, transcripts=6407
+      r01_p008: cells=79, transcripts=6883
+      r01_p009: cells=80, transcripts=5951
+      r01_p010: cells=69, transcripts=5620
+      r01_p011: cells=53, transcripts=4544
+      r01_p012: cells=49, transcripts=4554
+      r01_p013: cells=65, transcripts=5268
+      r01_p014: cells=67, transcripts=4995
+      r01_p015: cells=80, transcripts=7721
+      r01_p016: cells=78, transcripts=8315
+      r02_p001: cells=124, transcripts=20954
+      r02_p002: cells=145, transcripts=21034
+      r02_p003: cells=162, transcripts=17159
+      r02_p004: cells=151, transcripts=14806
+      r02_p005: cells=184, transcripts=14581
+      r02_p006: cells=194, transcripts=12850
+      r02_p007: cells=151, transcripts=10034
+      r02_p008: cells=179, transcripts=14203
+      r02_p009: cells=200, transcripts=16072
+      r02_p010: cells=203, transcripts=14761
+      r02_p011: cells=170, transcripts=14587
+      r02_p012: cells=164, transcripts=17325
+      r02_p013: cells=208, transcripts=16826
+      r02_p014: cells=190, transcripts=14788
+      r02_p015: cells=142, transcripts=13138
+      r02_p016: cells=147, transcripts=17477
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990533_x16_with_images.err
+
+============================================================
+  xsplit_GSM7990548_x1_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x1  (mode=data_only)
+  Job ID       : 1378204
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x1_data_only
+
+  Timing
+    Wall clock : 10m01s  (602s)
+    CPU time   : 10m10s  (610s)
+    Splitter   : 9m58s (internal timer)
+
+  Memory
+    Peak RAM   : 7.4 GB  (requested 8 GB)
+    Avg  RAM   : 2.3 GB
+
+  xenium-splitter
+    Regions    : 4
+    Cells      : 59K
+    Cells written in regions: 35K
+    Transcripts: 6.6M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (107.7s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=17886, transcripts=3517259
+      r02_p001: cells=12686, transcripts=1828147
+      r03_p001: cells=1050, transcripts=260414
+      r04_p001: cells=3830, transcripts=1030397
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_data_only.err
+
+============================================================
+  xsplit_GSM7990548_x1_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x1  (mode=with_images)
+  Job ID       : 1378205
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x1.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x1_with_images
+
+  Timing
+    Wall clock : 22m02s  (1322s)
+    CPU time   : 23m29s  (1409s)
+    Splitter   : 21m58s (internal timer)
+
+  Memory
+    Peak RAM   : 7.4 GB  (requested 16 GB)
+    Avg  RAM   : 2.6 GB
+
+  xenium-splitter
+    Regions    : 4
+    Cells      : 59K
+    Cells written in regions: 35K
+    Transcripts: 6.6M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (257.2s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=17886, transcripts=3517259
+      r02_p001: cells=12686, transcripts=1828147
+      r03_p001: cells=1050, transcripts=260414
+      r04_p001: cells=3830, transcripts=1030397
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x1_with_images.err
+
+============================================================
+  xsplit_GSM7990548_x2_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x2  (mode=data_only)
+  Job ID       : 1378206
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x2_data_only
+
+  Timing
+    Wall clock : 27m11s  (1632s)
+    CPU time   : 28m53s  (1733s)
+    Splitter   : 27m03s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 8 GB)
+    Avg  RAM   : 1.5 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 81K
+    Cells written in regions: 36K
+    Transcripts: 6.7M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (203.0s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=8999, transcripts=1685517
+      r01_p002: cells=9056, transcripts=1847172
+      r02_p001: cells=5335, transcripts=713032
+      r02_p002: cells=7452, transcripts=1122444
+      r03_p001: cells=505, transcripts=122814
+      r03_p002: cells=576, transcripts=142200
+      r04_p001: cells=2039, transcripts=535452
+      r04_p002: cells=1875, transcripts=506257
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_data_only.err
+
+============================================================
+  xsplit_GSM7990548_x2_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x2  (mode=with_images)
+  Job ID       : 1378207
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x2.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x2_with_images
+
+  Timing
+    Wall clock : 34m17s  (2058s)
+    CPU time   : 36m19s  (2179s)
+    Splitter   : 34m14s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 16 GB)
+    Avg  RAM   : 1.9 GB
+
+  xenium-splitter
+    Regions    : 8
+    Cells      : 81K
+    Cells written in regions: 36K
+    Transcripts: 6.7M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (295.5s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=8999, transcripts=1685517
+      r01_p002: cells=9056, transcripts=1847172
+      r02_p001: cells=5335, transcripts=713032
+      r02_p002: cells=7452, transcripts=1122444
+      r03_p001: cells=505, transcripts=122814
+      r03_p002: cells=576, transcripts=142200
+      r04_p001: cells=2039, transcripts=535452
+      r04_p002: cells=1875, transcripts=506257
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x2_with_images.err
+
+============================================================
+  xsplit_GSM7990548_x4_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x4  (mode=data_only)
+  Job ID       : 1378208
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x4_data_only
+
+  Timing
+    Wall clock : 47m44s  (2864s)
+    CPU time   : 51m35s  (3095s)
+    Splitter   : 47m40s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 8 GB)
+    Avg  RAM   : 1.5 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 123K
+    Cells written in regions: 37K
+    Transcripts: 6.8M
+    Files ok   : 40  skipped=3  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (315.6s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=4729, transcripts=941360
+      r01_p002: cells=4418, transcripts=763215
+      r01_p003: cells=4759, transcripts=960849
+      r01_p004: cells=4476, transcripts=910245
+      r02_p001: cells=2242, transcripts=262035
+      r02_p002: cells=3170, transcripts=457106
+      r02_p003: cells=3255, transcripts=529383
+      r02_p004: cells=4319, transcripts=600922
+      r03_p001: cells=304, transcripts=67721
+      r03_p002: cells=224, transcripts=58928
+      r03_p003: cells=216, transcripts=64755
+      r03_p004: cells=401, transcripts=83306
+      r04_p001: cells=1034, transcripts=270385
+      r04_p002: cells=1071, transcripts=275824
+      r04_p003: cells=1113, transcripts=259571
+      r04_p004: cells=818, transcripts=256735
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_data_only.err
+
+============================================================
+  xsplit_GSM7990548_x4_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x4  (mode=with_images)
+  Job ID       : 1378209
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x4.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x4_with_images
+
+  Timing
+    Wall clock : 55m39s  (3340s)
+    CPU time   : 1h00m02s  (3603s)
+    Splitter   : 55m31s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 16 GB)
+    Avg  RAM   : 1.8 GB
+
+  xenium-splitter
+    Regions    : 16
+    Cells      : 123K
+    Cells written in regions: 37K
+    Transcripts: 6.8M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : morphology.ome.tif  (326.2s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=4729, transcripts=941360
+      r01_p002: cells=4418, transcripts=763215
+      r01_p003: cells=4759, transcripts=960849
+      r01_p004: cells=4476, transcripts=910245
+      r02_p001: cells=2242, transcripts=262035
+      r02_p002: cells=3170, transcripts=457106
+      r02_p003: cells=3255, transcripts=529383
+      r02_p004: cells=4319, transcripts=600922
+      r03_p001: cells=304, transcripts=67721
+      r03_p002: cells=224, transcripts=58928
+      r03_p003: cells=216, transcripts=64755
+      r03_p004: cells=401, transcripts=83306
+      r04_p001: cells=1034, transcripts=270385
+      r04_p002: cells=1071, transcripts=275824
+      r04_p003: cells=1113, transcripts=259571
+      r04_p004: cells=818, transcripts=256735
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x4_with_images.err
+
+============================================================
+  xsplit_GSM7990548_x8_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSM7990548_x8  (mode=data_only)
+  Job ID       : 1378210
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x8_data_only
+
+  Timing
+    Wall clock : 1h00m37s  (3637s)
+    CPU time   : 59m20s  (3560s)
+
+  Memory
+    Peak RAM   : 4.0 GB  (requested 8 GB)
+    Avg  RAM   : 0.5 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_data_only.err
+
+============================================================
+  xsplit_GSM7990548_x8_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x8  (mode=with_images)
+  Job ID       : 1378212
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x8.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x8_with_images
+
+  Timing
+    Wall clock : 1h35m39s  (5739s)
+    CPU time   : 1h44m35s  (6275s)
+    Splitter   : 1h35m35s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 16 GB)
+    Avg  RAM   : 1.4 GB
+
+  xenium-splitter
+    Regions    : 32
+    Cells      : 204K
+    Cells written in regions: 38K
+    Transcripts: 6.9M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : transcripts.zarr.zip  (531.5s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=2381, transcripts=465057
+      r01_p002: cells=2504, transcripts=490994
+      r01_p003: cells=2220, transcripts=409621
+      r01_p004: cells=2345, transcripts=369582
+      r01_p005: cells=2435, transcripts=438523
+      r01_p006: cells=2493, transcripts=542070
+      r01_p007: cells=2458, transcripts=505067
+      r01_p008: cells=2151, transcripts=420488
+      r02_p001: cells=948, transcripts=84775
+      r02_p002: cells=1360, transcripts=182284
+      r02_p003: cells=1501, transcripts=207018
+      r02_p004: cells=1775, transcripts=257769
+      r02_p005: cells=1454, transcripts=249118
+      r02_p006: cells=1892, transcripts=288608
+      r02_p007: cells=2395, transcripts=317045
+      r02_p008: cells=2059, transcripts=294320
+      r03_p001: cells=202, transcripts=40827
+      r03_p002: cells=132, transcripts=31186
+      r03_p003: cells=113, transcripts=28168
+      r03_p004: cells=137, transcripts=33051
+      r03_p005: cells=110, transcripts=30959
+      r03_p006: cells=136, transcripts=39346
+      r03_p007: cells=177, transcripts=40437
+      r03_p008: cells=257, transcripts=47058
+      r04_p001: cells=655, transcripts=149124
+      r04_p002: cells=447, transcripts=133801
+      r04_p003: cells=531, transcripts=140014
+      r04_p004: cells=619, transcripts=150981
+      r04_p005: cells=666, transcripts=128194
+      r04_p006: cells=505, transcripts=139511
+      r04_p007: cells=430, transcripts=143950
+      r04_p008: cells=423, transcripts=120887
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x8_with_images.err
+
+============================================================
+  xsplit_GSM7990548_x16_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSM7990548_x16  (mode=data_only)
+  Job ID       : 1378214
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x16_data_only
+
+  Timing
+    Wall clock : 1h00m01s  (3601s)
+    CPU time   : 59m30s  (3570s)
+
+  Memory
+    Peak RAM   : 0.4 GB  (requested 8 GB)
+    Avg  RAM   : 0.4 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_data_only.err
+
+============================================================
+  xsplit_GSM7990548_x16_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSM7990548_x16  (mode=with_images)
+  Job ID       : 1378217
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_output-XETG00048__0003392__VUILD106MA__20230313__191400/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSM7990548_regions_x16.csv
+  H&E source   : /scratch/for8es/xenium_splitter/data/GSM7990548/GSM7990548_VUILD106MA_registered_HE.tif
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSM7990548_x16_with_images
+
+  Timing
+    Wall clock : 1h24m01s  (5041s)
+    CPU time   : 1h27m03s  (5224s)
+    Splitter   : 1h23m59s (internal timer)
+
+  Memory
+    Peak RAM   : 7.5 GB  (requested 16 GB)
+    Avg  RAM   : 1.6 GB
+
+  xenium-splitter
+    Regions    : 64
+    Cells      : 361K
+    Cells written in regions: 41K
+    Transcripts: 7.2M
+    Files ok   : 43  skipped=0  failed=0  (discovered=45)
+    Slowest    : cells.zarr.zip  (709.8s)
+
+  File sizes
+    H&E image  : 2.6 GB
+    H&E format : TIFF
+    H&E codec  : NONE
+    H&E size   : 28462 x 33048 px
+    Input dir  : 8.2 GB
+    LASSO file : 0.0 GB
+    Morphology file: 4.9 GB
+    Morphology size: 28462 x 33048 px
+    Morphology planes: 17
+    Morphology family: 5.9 GB
+    Input files: 49
+    Input image compression:
+      morphology.ome.tif=JPEG2000
+      morphology_focus.ome.tif=JPEG2000
+      morphology_mip.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=1226, transcripts=232806
+      r01_p002: cells=1283, transcripts=248473
+      r01_p003: cells=1353, transcripts=255641
+      r01_p004: cells=1321, transcripts=253575
+      r01_p005: cells=1240, transcripts=229562
+      r01_p006: cells=1130, transcripts=195225
+      r01_p007: cells=1246, transcripts=195720
+      r01_p008: cells=1271, transcripts=189389
+      r01_p009: cells=1283, transcripts=215490
+      r01_p010: cells=1337, transcripts=242638
+      r01_p011: cells=1355, transcripts=277794
+      r01_p012: cells=1330, transcripts=288971
+      r01_p013: cells=1389, transcripts=273791
+      r01_p014: cells=1233, transcripts=251690
+      r01_p015: cells=1234, transcripts=246277
+      r01_p016: cells=1034, transcripts=186824
+      r02_p001: cells=280, transcripts=13495
+      r02_p002: cells=719, transcripts=73674
+      r02_p003: cells=745, transcripts=99337
+      r02_p004: cells=681, transcripts=88003
+      r02_p005: cells=742, transcripts=107999
+      r02_p006: cells=842, transcripts=106095
+      r02_p007: cells=960, transcripts=132189
+      r02_p008: cells=902, transcripts=132789
+      r02_p009: cells=825, transcripts=140761
+      r02_p010: cells=715, transcripts=117054
+      r02_p011: cells=962, transcripts=153345
+      r02_p012: cells=1035, transcripts=145144
+      r02_p013: cells=1207, transcripts=151010
+      r02_p014: cells=1299, transcripts=173766
+      r02_p015: cells=1110, transcripts=149420
+      r02_p016: cells=1025, transcripts=151177
+      r03_p001: cells=119, transcripts=21971
+      r03_p002: cells=108, transcripts=22645
+      r03_p003: cells=92, transcripts=19916
+      r03_p004: cells=69, transcripts=15381
+      r03_p005: cells=67, transcripts=16566
+      r03_p006: cells=70, transcripts=15489
+      r03_p007: cells=83, transcripts=17492
+      r03_p008: cells=85, transcripts=20930
+      r03_p009: cells=65, transcripts=15719
+      r03_p010: cells=66, transcripts=18156
+      r03_p011: cells=77, transcripts=22204
+      r03_p012: cells=93, transcripts=23312
+      r03_p013: cells=110, transcripts=23464
+      r03_p014: cells=102, transcripts=21885
+      r03_p015: cells=138, transcripts=26125
+      r03_p016: cells=148, transcripts=24931
+      r04_p001: cells=428, transcripts=85837
+      r04_p002: cells=299, transcripts=75073
+      r04_p003: cells=248, transcripts=71276
+      r04_p004: cells=271, transcripts=75978
+      r04_p005: cells=294, transcripts=74606
+      r04_p006: cells=315, transcripts=78049
+      r04_p007: cells=343, transcripts=83359
+      r04_p008: cells=359, transcripts=79236
+      r04_p009: cells=381, transcripts=74250
+      r04_p010: cells=372, transcripts=63300
+      r04_p011: cells=279, transcripts=70027
+      r04_p012: cells=289, transcripts=77393
+      r04_p013: cells=259, transcripts=79591
+      r04_p014: cells=223, transcripts=75794
+      r04_p015: cells=254, transcripts=59548
+      r04_p016: cells=197, transcripts=66370
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSM7990548_x16_with_images.err
+
+============================================================
+  xsplit_GSE297945-A1_x1_data_only  [SUCCESS]
+============================================================
+  Dataset      : GSE297945-A1_x1  (mode=data_only)
+  Job ID       : 1378218
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x1.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x1_data_only
+
+  Timing
+    Wall clock : 5h07m39s  (18459s)
+    CPU time   : 5h06m27s  (18387s)
+    Splitter   : 5h07m29s (internal timer)
+
+  Memory
+    Peak RAM   : 31.7 GB  (requested 48 GB)
+    Avg  RAM   : 10.9 GB
+
+  xenium-splitter
+    Regions    : 14
+    Cells      : 968K
+    Cells written in regions: 722K
+    Transcripts: 114.0M
+    Files ok   : 39  skipped=61  failed=0  (discovered=102)
+    Slowest    : transcripts.zarr.zip  (3908.4s)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=25704, transcripts=4114972
+      r02_p001: cells=33955, transcripts=6786215
+      r03_p001: cells=38508, transcripts=7340549
+      r04_p001: cells=37903, transcripts=3899151
+      r05_p001: cells=54457, transcripts=11150761
+      r06_p001: cells=67642, transcripts=8082755
+      r07_p001: cells=60831, transcripts=11739420
+      r08_p001: cells=154419, transcripts=32129830
+      r09_p001: cells=73381, transcripts=5109988
+      r10_p001: cells=52821, transcripts=8358044
+      r11_p001: cells=14730, transcripts=2085588
+      r12_p001: cells=8972, transcripts=1610735
+      r13_p001: cells=27103, transcripts=4787442
+      r14_p001: cells=71523, transcripts=6759848
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_data_only.err
+
+============================================================
+  xsplit_GSE297945-A1_x1_with_images  [SUCCESS]
+============================================================
+  Dataset      : GSE297945-A1_x1  (mode=with_images)
+  Job ID       : 1378219
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x1.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x1_with_images
+
+  Timing
+    Wall clock : 6h29m41s  (23381s)
+    CPU time   : 6h36m39s  (23800s)
+    Splitter   : 6h29m37s (internal timer)
+
+  Memory
+    Peak RAM   : 31.6 GB  (requested 48 GB)
+    Avg  RAM   : 11.9 GB
+
+  xenium-splitter
+    Regions    : 14
+    Cells      : 968K
+    Cells written in regions: 722K
+    Transcripts: 114.0M
+    Files ok   : 40  skipped=60  failed=0  (discovered=102)
+    Slowest    : morphology.ome.tif  (3992.0s)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+    Per-region counts:
+      r01_p001: cells=25704, transcripts=4114972
+      r02_p001: cells=33955, transcripts=6786215
+      r03_p001: cells=38508, transcripts=7340549
+      r04_p001: cells=37903, transcripts=3899151
+      r05_p001: cells=54457, transcripts=11150761
+      r06_p001: cells=67642, transcripts=8082755
+      r07_p001: cells=60831, transcripts=11739420
+      r08_p001: cells=154419, transcripts=32129830
+      r09_p001: cells=73381, transcripts=5109988
+      r10_p001: cells=52821, transcripts=8358044
+      r11_p001: cells=14730, transcripts=2085588
+      r12_p001: cells=8972, transcripts=1610735
+      r13_p001: cells=27103, transcripts=4787442
+      r14_p001: cells=71523, transcripts=6759848
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x1_with_images.err
+
+============================================================
+  xsplit_GSE297945-A1_x2_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x2  (mode=data_only)
+  Job ID       : 1378220
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x2.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x2_data_only
+
+  Timing
+    Wall clock : 6h00m04s  (21604s)
+    CPU time   : 5h58m51s  (21531s)
+
+  Memory
+    Peak RAM   : 6.4 GB  (requested 48 GB)
+    Avg  RAM   : 1.4 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_data_only.err
+
+============================================================
+  xsplit_GSE297945-A1_x2_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x2  (mode=with_images)
+  Job ID       : 1378221
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x2.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x2_with_images
+
+  Timing
+    Wall clock : 8h00m19s  (28819s)
+    CPU time   : 8h00m36s  (28836s)
+
+  Memory
+    Peak RAM   : 30.9 GB  (requested 48 GB)
+    Avg  RAM   : 7.5 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x2_with_images.err
+
+============================================================
+  xsplit_GSE297945-A1_x4_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x4  (mode=data_only)
+  Job ID       : 1378222
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x4.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x4_data_only
+
+  Timing
+    Wall clock : 6h00m29s  (21629s)
+    CPU time   : 5h59m36s  (21576s)
+
+  Memory
+    Peak RAM   : 1.1 GB  (requested 48 GB)
+    Avg  RAM   : 1.1 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_data_only.err
+
+============================================================
+  xsplit_GSE297945-A1_x4_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x4  (mode=with_images)
+  Job ID       : 1378223
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x4.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x4_with_images
+
+  Timing
+    Wall clock : 8h00m01s  (28801s)
+    CPU time   : 8h11m00s  (29460s)
+
+  Memory
+    Peak RAM   : 25.4 GB  (requested 48 GB)
+    Avg  RAM   : 2.0 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x4_with_images.err
+
+============================================================
+  xsplit_GSE297945-A1_x8_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x8  (mode=data_only)
+  Job ID       : 1378224
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x8.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x8_data_only
+
+  Timing
+    Wall clock : 6h00m21s  (21621s)
+    CPU time   : 5h59m35s  (21575s)
+
+  Memory
+    Peak RAM   : 1.1 GB  (requested 48 GB)
+    Avg  RAM   : 1.0 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_data_only.err
+
+============================================================
+  xsplit_GSE297945-A1_x8_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x8  (mode=with_images)
+  Job ID       : 1378225
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x8.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x8_with_images
+
+  Timing
+    Wall clock : 8h00m06s  (28806s)
+    CPU time   : 7h59m08s  (28748s)
+
+  Memory
+    Peak RAM   : 1.2 GB  (requested 48 GB)
+    Avg  RAM   : 1.1 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x8_with_images.err
+
+============================================================
+  xsplit_GSE297945-A1_x16_data_only  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x16  (mode=data_only)
+  Job ID       : 1378226
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x16.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x16_data_only
+
+  Timing
+    Wall clock : 6h00m22s  (21622s)
+    CPU time   : 5h59m35s  (21575s)
+
+  Memory
+    Peak RAM   : 1.1 GB  (requested 48 GB)
+    Avg  RAM   : 0.9 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_data_only.err
+
+============================================================
+  xsplit_GSE297945-A1_x16_with_images  [TIMEOUT]
+============================================================
+  Dataset      : GSE297945-A1_x16  (mode=with_images)
+  Job ID       : 1378227
+  Input dir    : /scratch/for8es/xenium_splitter/data/GSE297945/M-Goliath-A1_slide2_xenium_output/outs
+  LASSO file   : /data/lungmap-data/xenium_splitter/scripts/regions/ram_runtime/GSE297945-A1_regions_x16.csv
+  H&E source   : -
+  Output dir   : /scratch/for8es/xenium_splitter/data_out3/GSE297945-A1_x16_with_images
+
+  Timing
+    Wall clock : 8h00m06s  (28806s)
+    CPU time   : 7h59m10s  (28750s)
+
+  Memory
+    Peak RAM   : 1.1 GB  (requested 48 GB)
+    Avg  RAM   : 0.9 GB
+
+  xenium-splitter
+    Regions    : -
+    Cells      : -
+    Transcripts: -
+    Files ok   : -  skipped=-  failed=-  (discovered=-)
+
+  File sizes
+    H&E image  : - GB
+    H&E format : -
+    H&E codec  : -
+    H&E size   : -
+    Input dir  : 25.6 GB
+    LASSO file : 0.0 GB
+    Morphology file: 18.9 GB
+    Morphology size: 54031 x 68047 px
+    Morphology planes: 28
+    Morphology family: 18.9 GB
+    Input files: 106
+    Input image compression:
+      aux_outputs/per_cycle_channel_images/cycle_01_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_01_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_02_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_03_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_04_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_05_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_06_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_07_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_08_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_09_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_10_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_11_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_12_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_13_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_14_yel.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_blu.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_grn.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_red.tiff=ADOBE_DEFLATE
+      aux_outputs/per_cycle_channel_images/cycle_15_yel.tiff=ADOBE_DEFLATE
+      morphology.ome.tif=JPEG2000
+
+  Logs
+    stdout     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.out
+    stderr     : /users/for8es/xenium_splitter/benchmark_mem_opt2/xsplit_GSE297945-A1_x16_with_images.err
